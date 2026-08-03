@@ -54,7 +54,20 @@ tocar el `.bat`.
    algún día aparece uno nuevo sale sin tocar nada. Si el reporte tiene un solo
    grupo, la fila de botones ni se muestra. Las casas sin guion (una bodega, por
    ejemplo) salen solo en *Todas*.
+
+   Al elegir un grupo aparece debajo una segunda fila con los **bloques** de ese
+   grupo (`1 · 2 · 3 · 10 · A`), que es lo que va entre el guion y el punto:
+   `VB-5.14` es del bloque **5**. Con *Todas* no salen, porque un botón que
+   dijera «1» mezclaría VB-1 con VN-1.
 4. **Copiar**: el texto sale generado según el % de avance. Botón *Copiar*.
+
+   Al copiar, la casa queda **marcada por 7 días**: al lado del botón sale
+   *Añadido hoy*, que va cambiando solo (*ayer*, *hace 2 días*…) y desaparece al
+   octavo. En la lista de casas queda una marquita ✓ para verlas de un vistazo.
+
+   La marca se guarda por número de casa, no por reporte, así que **sigue ahí
+   cuando importás el reporte de la semana siguiente**, que es cuando sirve. Si
+   copiaste solo para leer, tocá la marca y se quita.
 5. **Medidor**: cuando *Obras Complementarias* está en **100 %**, la app le agrega
    sola este texto al final:
 
@@ -91,22 +104,27 @@ se cambian por accidente.
   es el porcentaje a partir del cual se agrega (hoy, 100). La excepción de las
   casas finalizadas está en `llevaLineaDeMedidor()`, ahí mismo.
 - Para el orden de los botones de grupo: la lista `ORDEN_DE_GRUPOS`.
+- Para los días que dura la marca de copiado: `DIAS_DE_MARCA`, en `js/app.js`.
 
 Después de editar: abrí el `.bat`, dejá que cargue la app, **cerrala y volvé a
 abrirla**. La primera vez la app renueva su copia guardada, y la segunda ya muestra
 el cambio.
 
 > Si el cambio no aparece, subí en uno el número de `CACHE` en `sw.js`
-> (`reportes-v2` → `reportes-v3`) y repetí los dos pasos.
+> (`reportes-v3` → `reportes-v4`) y repetí los dos pasos.
 
 ## Los datos
 
 Todo se guarda **solo en este equipo** (IndexedDB del navegador). Nada se sube a
 internet, y no hay botón de respaldo: no hace falta.
 
-La razón es que la app no guarda **nada** que no se pueda regenerar. Todo lo que
-muestra sale del Excel. Si algún día se limpian los datos de Chrome, se vuelven a
-importar los reportes y queda igual que antes.
+La razón es que la app no guarda casi **nada** que no se pueda regenerar. Todo lo
+que muestra sale del Excel. Si algún día se limpian los datos de Chrome, se vuelven
+a importar los reportes y queda igual que antes.
+
+> Lo único que no se regenera son las marcas de «añadido», porque salen de lo que
+> copiaste y no del Excel. Si se limpian los datos de Chrome se pierden, pero como
+> duran 7 días tampoco es mucho lo que hay que perder.
 
 > Los `.xlsx` semanales son el respaldo real. Mientras los tengas guardados, no
 > hay nada que perder.
@@ -118,10 +136,10 @@ importar los reportes y queda igual que antes.
 | `Abrir Reportes.bat` | Levanta el servidor local. Solo para instalar o actualizar |
 | `index.html` | La pantalla |
 | `css/estilos.css` | Colores y diseño (verde `#add010`) |
-| `js/textos.js` | Los textos, la relación % → etapa, la regla del medidor y los grupos |
+| `js/textos.js` | Los textos, la relación % → etapa, la regla del medidor, los grupos y los bloques |
 | `js/excel.js` | Lectura del `.xlsx` y reconocimiento de hoja y columnas |
 | `js/almacen.js` | Guardado local |
-| `js/app.js` | Búsqueda, importación, historial |
+| `js/app.js` | Búsqueda, filtros, marcas de copiado, importación, historial |
 | `sw.js` | Funcionamiento sin internet |
 | `servidor.ps1` | Servidor local |
 | `vendor/xlsx.full.min.js` | SheetJS, la librería que lee Excel |

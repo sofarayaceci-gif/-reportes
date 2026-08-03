@@ -12,7 +12,7 @@
    descarta el caché viejo y vuelve a bajar todo del servidor, así no queda
    ningún archivo a medias. La pantalla que ya está abierta sigue con lo viejo:
    los cambios se ven al cerrarla y volver a abrirla. */
-const CACHE = 'reportes-v2';
+const CACHE = 'reportes-v3';
 
 const ARCHIVOS = [
   '.',

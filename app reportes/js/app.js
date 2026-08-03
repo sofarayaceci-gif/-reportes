@@ -14,7 +14,9 @@
     filas: [],             // filas del reporte activo
     reportes: [],          // todos los reportes, para el historial
     casaAbierta: null,
-    grupo: ''              // filtro de grupo activo; vacío = todas
+    grupo: '',             // filtro de grupo activo; vacío = todas
+    subgrupo: '',          // filtro de bloque dentro del grupo; vacío = todos
+    marcas: {}             // { casaNorm: fecha ISO en que se copió }
   };
 
   /* ── Utilidades ─────────────────────────────────────────────────────────── */
@@ -60,6 +62,83 @@
     });
   }
 
+  /* ══════════════════════════════════════════════════════════════════════════
+     MARCAS DE COPIADO
+
+     Al copiar el texto de una casa queda marcada por unos días, para saber de
+     un vistazo cuáles ya se metieron al informe. Se guardan por número de
+     casa y no por reporte, así la marca sigue ahí cuando entra el reporte de
+     la semana siguiente, que es justo cuando sirve.
+     ══════════════════════════════════════════════════════════════════════════ */
+  const DIAS_DE_MARCA = 7;
+
+  /* Días de calendario, no de 24 horas: algo copiado anoche dice «ayer» y no
+     «hoy» aunque no hayan pasado 24 horas. */
+  function diasDesde(iso) {
+    const antes = new Date(iso);
+    if (isNaN(antes)) return null;
+    const hoy = new Date();
+    const a = new Date(antes.getFullYear(), antes.getMonth(), antes.getDate());
+    const b = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    return Math.round((b - a) / 86400000);
+  }
+
+  /* Los días que lleva marcada una casa, o null si no está marcada o si ya se
+     le pasaron los días. */
+  function diasDeMarca(casaNorm) {
+    const iso = estado.marcas[casaNorm];
+    if (!iso) return null;
+    const dias = diasDesde(iso);
+    if (dias === null || dias < 0 || dias >= DIAS_DE_MARCA) return null;
+    return dias;
+  }
+
+  function textoDeMarca(dias) {
+    if (dias === 0) return 'Añadido hoy';
+    if (dias === 1) return 'Añadido ayer';
+    return 'Añadido hace ' + dias + ' días';
+  }
+
+  function guardarMarcas() {
+    return Almacen.guardarAjuste('marcas', estado.marcas);
+  }
+
+  function marcarCasa(casaNorm) {
+    estado.marcas[casaNorm] = new Date().toISOString();
+    return guardarMarcas();
+  }
+
+  function quitarMarca(casaNorm) {
+    delete estado.marcas[casaNorm];
+    return guardarMarcas();
+  }
+
+  /* Las vencidas se borran al abrir, para que la lista no crezca sin fin. */
+  function limpiarMarcasVencidas() {
+    let hubo = false;
+    Object.keys(estado.marcas).forEach(casa => {
+      if (diasDeMarca(casa) === null) { delete estado.marcas[casa]; hubo = true; }
+    });
+    return hubo ? guardarMarcas() : Promise.resolve();
+  }
+
+  /* El banner que va al lado del botón de copiar. Cuando no hay marca deja un
+     hueco vacío, para poder cambiarlo en su lugar sin repintar la ficha
+     entera (si no, se perdería el «¡Copiado!» del botón). */
+  function marcaBannerHTML(casaNorm) {
+    const dias = diasDeMarca(casaNorm);
+    if (dias === null) return '<span id="marca" hidden></span>';
+    return '<button type="button" class="marca" id="marca" ' +
+      'data-quitar-marca="' + esc(casaNorm) + '" ' +
+      'title="Tocá para quitar la marca">' + esc(textoDeMarca(dias)) + '</button>';
+  }
+
+  function refrescarMarca(casaNorm) {
+    const banner = $('#marca');
+    if (banner) banner.outerHTML = marcaBannerHTML(casaNorm);
+    pintarResultados();
+  }
+
   /* ── Navegación entre vistas ────────────────────────────────────────────── */
   function mostrarVista(nombre) {
     $$('.vista').forEach(v => v.classList.toggle('vista--activa', v.id === 'vista-' + nombre));
@@ -75,14 +154,25 @@
     const q = normalizarCasa(consulta);
     return estado.filas.filter(fila => {
       if (estado.grupo && grupoDeCasa(fila.casa) !== estado.grupo) return false;
+      if (estado.subgrupo && subgrupoDeCasa(fila.casa) !== estado.subgrupo) return false;
       return !q || fila.casaNorm.indexOf(q) !== -1;
     });
   }
 
-  /* ── Filtro por grupo ─────────────────────────────────────────────────────
+  /* Cómo se llama lo que se está viendo: «VB», «VB-5», o vacío si es todo. */
+  function etiquetaDelFiltro() {
+    if (!estado.grupo) return '';
+    return estado.grupo + (estado.subgrupo ? '-' + estado.subgrupo : '');
+  }
+
+  /* ── Filtros de grupo y de bloque ─────────────────────────────────────────
      Los botones salen del propio reporte: se juntan los prefijos que hay
      antes del guion y se ordenan según ORDEN_DE_GRUPOS. Con un solo grupo el
-     filtro no filtraría nada, así que ni se muestra. */
+     filtro no filtraría nada, así que ni se muestra.
+
+     Los bloques son el segundo nivel y salen solo con un grupo elegido: con
+     «Todas» activo, un botón que dijera «1» mezclaría VB-1 con VN-1 y no
+     habría cómo saber de cuál es. */
   function gruposDelReporte() {
     const vistos = [];
     estado.filas.forEach(fila => {
@@ -92,27 +182,57 @@
     return ordenarGrupos(vistos);
   }
 
+  function subgruposDelGrupo(grupo) {
+    const vistos = [];
+    estado.filas.forEach(fila => {
+      if (grupoDeCasa(fila.casa) !== grupo) return;
+      const sub = subgrupoDeCasa(fila.casa);
+      if (sub && vistos.indexOf(sub) === -1) vistos.push(sub);
+    });
+    return ordenarSubgrupos(vistos);
+  }
+
+  function botonesDeFiltro(valores, elegido, atributo, etiquetaTodas) {
+    return [''].concat(valores).map(valor => {
+      const activo = elegido === valor;
+      return '<button type="button" class="grupo' + (activo ? ' grupo--activo' : '') +
+        '" ' + atributo + '="' + esc(valor) + '" aria-pressed="' + activo + '">' +
+        esc(valor || etiquetaTodas) + '</button>';
+    }).join('');
+  }
+
   function pintarGrupos() {
     const contenedor = $('#grupos');
+    const subcontenedor = $('#subgrupos');
     const grupos = gruposDelReporte();
 
     if (grupos.length < 2) {
       estado.grupo = '';
-      contenedor.innerHTML = '';
-      contenedor.hidden = true;
-      return;
+    } else if (estado.grupo && grupos.indexOf(estado.grupo) === -1) {
+      /* Si el reporte nuevo no trae el grupo que estaba elegido, vuelve a todas. */
+      estado.grupo = '';
     }
 
-    /* Si el reporte nuevo no trae el grupo que estaba elegido, se vuelve a todas. */
-    if (estado.grupo && grupos.indexOf(estado.grupo) === -1) estado.grupo = '';
+    if (grupos.length < 2) {
+      contenedor.innerHTML = '';
+      contenedor.hidden = true;
+    } else {
+      contenedor.hidden = false;
+      contenedor.innerHTML = botonesDeFiltro(grupos, estado.grupo, 'data-grupo', 'Todas');
+    }
 
-    contenedor.hidden = false;
-    contenedor.innerHTML = [''].concat(grupos).map(grupo => {
-      const activo = estado.grupo === grupo;
-      return '<button type="button" class="grupo' + (activo ? ' grupo--activo' : '') +
-        '" data-grupo="' + esc(grupo) + '" aria-pressed="' + activo + '">' +
-        esc(grupo || 'Todas') + '</button>';
-    }).join('');
+    const subgrupos = estado.grupo ? subgruposDelGrupo(estado.grupo) : [];
+    if (subgrupos.length < 2) estado.subgrupo = '';
+    else if (estado.subgrupo && subgrupos.indexOf(estado.subgrupo) === -1) estado.subgrupo = '';
+
+    if (subgrupos.length < 2) {
+      subcontenedor.innerHTML = '';
+      subcontenedor.hidden = true;
+      return;
+    }
+    subcontenedor.hidden = false;
+    subcontenedor.innerHTML =
+      botonesDeFiltro(subgrupos, estado.subgrupo, 'data-subgrupo', 'Todos');
   }
 
   function pintarResultados() {
@@ -131,17 +251,17 @@
       return;
     }
 
-    const enGrupo = estado.grupo ? ' en ' + estado.grupo : '';
+    const filtro = etiquetaDelFiltro();
+    const enFiltro = filtro ? ' en ' + filtro : '';
     conteo.textContent = consulta
-      ? lista.length + (lista.length === 1 ? ' casa encontrada' : ' casas encontradas') + enGrupo
-      : lista.length + (lista.length === 1 ? ' casa' : ' casas') + (enGrupo || ' en el reporte');
+      ? lista.length + (lista.length === 1 ? ' casa encontrada' : ' casas encontradas') + enFiltro
+      : lista.length + (lista.length === 1 ? ' casa' : ' casas') + (enFiltro || ' en el reporte');
 
     if (!lista.length) {
       contenedor.innerHTML = '';
       pintarDetalleVacio(consulta
-        ? 'Ninguna casa coincide con «' + esc(consulta) + '»' +
-          (estado.grupo ? ' en ' + esc(estado.grupo) : '') + '.'
-        : 'El grupo ' + esc(estado.grupo) + ' no tiene casas en este reporte.');
+        ? 'Ninguna casa coincide con «' + esc(consulta) + '»' + esc(enFiltro) + '.'
+        : 'No hay casas en ' + esc(filtro) + ' en este reporte.');
       return;
     }
 
@@ -152,10 +272,14 @@
       const pastilla = fila.porcentaje === null
         ? '<span class="pastilla pastilla--gris">sin %</span>'
         : '<span class="pastilla">' + fila.porcentaje + '%</span>';
+      const dias = diasDeMarca(fila.casaNorm);
+      const marca = dias === null ? ''
+        : '<span class="marca-punto" title="' + esc(textoDeMarca(dias)) + '" ' +
+          'aria-label="' + esc(textoDeMarca(dias)) + '">&#10003;</span>';
       return '<li><button type="button" class="resultado' + activa + '" data-casa="' + esc(fila.casaNorm) + '">' +
         '<span class="resultado__casa">' + esc(fila.casa) +
         (meta ? '<span class="resultado__meta">' + esc(meta) + '</span>' : '') +
-        '</span>' + pastilla + '</button></li>';
+        '</span>' + marca + pastilla + '</button></li>';
     }).join('');
   }
 
@@ -203,8 +327,11 @@
       '<div class="texto-generado">' +
         '<div class="texto-generado__encabezado">' +
           '<span>Texto del reporte</span>' +
-          '<button type="button" class="boton boton--copiar" id="btnCopiar"' +
-            (texto ? '' : ' disabled') + '>Copiar</button>' +
+          '<div class="texto-generado__acciones">' +
+            marcaBannerHTML(casaNorm) +
+            '<button type="button" class="boton boton--copiar" id="btnCopiar"' +
+              (texto ? '' : ' disabled') + '>Copiar</button>' +
+          '</div>' +
         '</div>' +
         '<p class="texto-generado__cuerpo" id="cuerpoTexto">' + esc(texto) + '</p>' +
       '</div>' +
@@ -221,6 +348,11 @@
           boton.textContent = 'Copiar';
           boton.classList.remove('boton--copiado');
         }, 1600);
+        /* Sin return a propósito: la marca es un extra. Si fallara el guardado
+           no tiene por qué salir un «no se pudo copiar», porque sí se copió. */
+        marcarCasa(casaNorm)
+          .then(() => refrescarMarca(casaNorm))
+          .catch(() => { /* el copiado ya salió, que es lo que importa */ });
       }).catch(() => avisar('No se pudo copiar. Seleccioná el texto y usá Ctrl+C.', true));
     });
 
@@ -302,6 +434,7 @@
         .then(() => {
           $('#busqueda').value = '';
           estado.grupo = '';
+          estado.subgrupo = '';
           refrescarVistaBuscar();
           mostrarVista('buscar');
           $('#busqueda').focus();
@@ -347,9 +480,11 @@
   function recargarTodo() {
     return Promise.all([
       Almacen.listarReportes(),
-      Almacen.leerAjuste('reporteActivo', null)
-    ]).then(([reportes, idActivo]) => {
+      Almacen.leerAjuste('reporteActivo', null),
+      Almacen.leerAjuste('marcas', {})
+    ]).then(([reportes, idActivo, marcas]) => {
       estado.reportes = reportes;
+      estado.marcas = marcas && typeof marcas === 'object' ? marcas : {};
 
       const activo = reportes.find(r => r.id === Number(idActivo)) || reportes[0] || null;
       estado.reporteActivo = activo;
@@ -362,7 +497,7 @@
         estado.filas = activo ? (activo._filasCache || []) : [];
         estado.filas.sort((a, b) => a.casa.localeCompare(b.casa, 'es'));
       });
-    }).then(() => {
+    }).then(() => limpiarMarcasVencidas()).then(() => {
       $('#barraSub').textContent = estado.reporteActivo
         ? estado.reporteActivo.nombre + ' · ' + estado.filas.length + ' casas'
         : 'Sin reportes';
@@ -402,14 +537,35 @@
       pintarResultados();
     });
 
-    /* El filtro de grupo no toca lo escrito en el buscador: se pueden usar
-       los dos a la vez. */
+    /* Los filtros no tocan lo escrito en el buscador: se pueden usar a la vez.
+       Cambiar de grupo sí borra el bloque elegido, porque los bloques son de
+       cada grupo y el que estaba no tiene por qué existir en el nuevo. */
     $('#grupos').addEventListener('click', evento => {
       const boton = evento.target.closest('[data-grupo]');
       if (!boton) return;
       estado.grupo = boton.dataset.grupo;
+      estado.subgrupo = '';
       pintarGrupos();
       pintarResultados();
+    });
+
+    $('#subgrupos').addEventListener('click', evento => {
+      const boton = evento.target.closest('[data-subgrupo]');
+      if (!boton) return;
+      estado.subgrupo = boton.dataset.subgrupo;
+      pintarGrupos();
+      pintarResultados();
+    });
+
+    /* Quitar la marca de una casa desde el banner de la ficha. Va delegado
+       porque el banner se cambia de lugar cada vez que se copia. */
+    $('#detalle').addEventListener('click', evento => {
+      const boton = evento.target.closest('[data-quitar-marca]');
+      if (!boton) return;
+      const casaNorm = boton.dataset.quitarMarca;
+      quitarMarca(casaNorm)
+        .then(() => refrescarMarca(casaNorm))
+        .catch(() => avisar('No se pudo quitar la marca.', true));
     });
 
     $('#resultados').addEventListener('click', evento => {
