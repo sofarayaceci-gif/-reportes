@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reportes — Adelante Desarrollos</title>
+<meta name="theme-color" content="#add010">
+<meta name="description" content="Consulta de avance eléctrico por casa y generación del texto de reporte.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<header class="barra">
+  <img class="barra__logo" src="iconos/logo.png" alt="Adelante Desarrollos">
+  <div class="barra__texto">
+    <h1 class="barra__titulo">Reportes</h1>
+    <p class="barra__sub" id="barraSub">Sin reportes</p>
+  </div>
+  <button type="button" class="clip" id="btnImportar" aria-label="Importar reporte de Excel" title="Importar reporte de Excel">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M8.5 13.5l7-7a3.5 3.5 0 0 1 5 5l-9 9a5.5 5.5 0 0 1-7.8-7.8l8.3-8.3"
+            fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <input type="file" id="archivo" accept=".xlsx,.xlsm,.xls" hidden>
+</header>
+
+<main id="vistas">
+
+  <!-- ══════════════ BUSCAR ══════════════ -->
+  <section class="vista vista--activa" id="vista-buscar">
+    <div class="columnas" id="columnas">
+
+      <div class="columna columna--lista">
+        <div class="buscador">
+          <svg class="buscador__lupa" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+            <path d="M16.5 16.5L21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="search" id="busqueda" placeholder="Número de casa" autocomplete="off"
+                 autocapitalize="characters" spellcheck="false" aria-label="Buscar número de casa">
+          <button type="button" class="buscador__limpiar" id="btnLimpiar" aria-label="Limpiar búsqueda" hidden>&times;</button>
+        </div>
+        <!-- Los botones de grupo (Todas · VB · VN · VC) y los de bloque
+             (1 · 2 · 3…) los arma app.js con lo que traiga el reporte. Los de
+             bloque solo salen cuando hay un grupo elegido. -->
+        <div class="grupos" id="grupos" role="group" aria-label="Filtrar por grupo" hidden></div>
+        <div class="grupos grupos--sub" id="subgrupos" role="group" aria-label="Filtrar por bloque" hidden></div>
+        <p class="conteo" id="conteo"></p>
+        <ul class="resultados" id="resultados"></ul>
+      </div>
+
+      <div class="columna columna--detalle" id="detalle">
+        <div class="vacio">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M3 10.5L12 3l9 7.5M5 9.5V21h14V9.5M9.5 21v-6h5v6"
+                  fill="none" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <p>Buscá una casa para ver su texto de reporte.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════ HISTORIAL ══════════════ -->
+  <section class="vista" id="vista-historial">
+    <h2 class="titulo">Historial de reportes</h2>
+    <p class="ayuda">El reporte activo es el que usa el buscador. Tocá otro para cambiarlo.</p>
+    <ul class="historial" id="historial"></ul>
+    <div class="vacio vacio--bloque" id="historialVacio">
+      <p>Todavía no has importado ningún reporte.</p>
+      <button type="button" class="boton boton--principal" id="btnImportarVacio">Importar el primero</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="nav">
+  <button type="button" class="nav__boton nav__boton--activo" data-vista="buscar">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M16.5 16.5L21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span>Buscar</span>
+  </button>
+  <button type="button" class="nav__boton" data-vista="historial">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 5h16M4 12h16M4 19h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span>Historial</span>
+  </button>
+</nav>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="js/textos.js"></script>
+<script src="js/almacen.js"></script>
+<script src="js/excel.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
