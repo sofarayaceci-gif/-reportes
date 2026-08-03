@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Registro de Horas</title>
+
+<!-- Instalable como aplicación (Chrome: Instalar; iPhone: Añadir a inicio) -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="application-name" content="Registro de Horas">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Horas">
+<link rel="icon" type="image/png" sizes="192x192" href="icono-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bloqueado">
+
+<!-- ============ PANTALLA DE ACCESO ============ -->
+<div class="acceso" id="pantalla-acceso" role="dialog" aria-modal="true" aria-labelledby="acceso-titulo">
+  <div class="acceso-inner">
+    <div class="acceso-card card">
+
+      <div class="acceso-brand">
+        <span class="brand-mark"></span>
+        <span class="brand-text">Registro de <strong>Horas</strong></span>
+      </div>
+
+      <h1 class="acceso-titulo" id="acceso-titulo">Iniciar sesión</h1>
+      <p class="acceso-sub" id="acceso-sub">Ingresa tus datos para abrir la aplicación.</p>
+
+      <form id="form-acceso" autocomplete="off" novalidate>
+
+        <div class="field">
+          <label for="acceso-usuario">Usuario</label>
+          <input type="text" id="acceso-usuario" class="input" autocomplete="username"
+                 placeholder="Nombre de usuario">
+        </div>
+
+        <div class="field">
+          <label for="acceso-clave">Contraseña</label>
+          <div class="clave-wrap">
+            <input type="password" id="acceso-clave" class="input" autocomplete="current-password"
+                   placeholder="Contraseña">
+            <button type="button" class="ver-clave" data-ver="acceso-clave"
+                    aria-label="Mostrar contraseña">Ver</button>
+          </div>
+        </div>
+
+        <div class="field" id="campo-confirmar" hidden>
+          <label for="acceso-clave2">Repetir contraseña</label>
+          <input type="password" id="acceso-clave2" class="input" autocomplete="new-password"
+                 placeholder="Repite la contraseña">
+        </div>
+
+        <p class="error" id="acceso-error" hidden></p>
+
+        <button type="submit" class="btn btn-primary acceso-btn" id="btn-acceso">Entrar</button>
+      </form>
+
+      <details class="acceso-ayuda" id="acceso-ayuda">
+        <summary>¿Olvidaste la contraseña?</summary>
+        <p>La contraseña no se guarda, así que no se puede recuperar, pero sí
+           <strong>puedes ponerle una nueva</strong> sin perder ningún registro de horas.</p>
+
+        <form id="form-restablecer" autocomplete="off" novalidate>
+
+          <div class="field">
+            <label for="reset-usuario">Usuario de la cuenta</label>
+            <input type="text" id="reset-usuario" class="input" autocomplete="username"
+                   placeholder="Nombre de usuario">
+          </div>
+
+          <div class="field">
+            <label for="reset-clave">Contraseña nueva</label>
+            <div class="clave-wrap">
+              <input type="password" id="reset-clave" class="input" autocomplete="new-password"
+                     placeholder="Contraseña nueva">
+              <button type="button" class="ver-clave" data-ver="reset-clave"
+                      aria-label="Mostrar contraseña">Ver</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="reset-clave2">Repetir contraseña nueva</label>
+            <input type="password" id="reset-clave2" class="input" autocomplete="new-password"
+                   placeholder="Repite la contraseña nueva">
+          </div>
+
+          <p class="error" id="reset-error" hidden></p>
+          <p class="hint" id="reset-ok" hidden><strong>Contraseña cambiada.</strong> Entra con la nueva.</p>
+
+          <button type="submit" class="btn btn-primary" id="btn-restablecer">Cambiar la contraseña</button>
+        </form>
+
+        <p class="acceso-ayuda-otro">¿Prefieres empezar de cero y borrar el acceso junto con todos
+           los registros de este navegador?
+           <button type="button" class="btn-reset" id="btn-reset">Borrar todo</button></p>
+      </details>
+
+      <p class="acceso-nota" id="acceso-nota"></p>
+
+    </div>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="topbar-top">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span class="brand-text">Registro de <strong>Horas</strong></span>
+    </div>
+    <div class="sesion">
+      <button type="button" class="nube-chip" id="nube-chip" data-goto="config" hidden>
+        <span class="nube-punto" aria-hidden="true"></span>
+        <span class="nube-chip-texto" id="nube-chip-texto"></span>
+      </button>
+      <span class="sesion-usuario" id="sesion-usuario"></span>
+
+      <!-- Configuración y Salir en un solo menú: se abre con clic o toque -->
+      <div class="menu" id="menu-cuenta">
+        <button type="button" class="menu-btn" id="menu-cuenta-btn" aria-haspopup="true"
+                aria-expanded="false" aria-controls="menu-cuenta-lista">
+          Menú<span class="menu-flecha" aria-hidden="true"></span>
+        </button>
+        <div class="menu-lista" id="menu-cuenta-lista" role="menu" hidden>
+          <button type="button" class="menu-item" role="menuitem" data-goto="config">Configuración</button>
+          <button type="button" class="menu-item es-salir" role="menuitem" id="btn-salir">Salir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" role="tab" data-view="registro">Registro</button>
+    <button class="tab" role="tab" data-view="horas">Horas</button>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ VISTA REGISTRO ============ -->
+  <section id="view-registro" class="view">
+
+    <!-- Selector de fecha: siempre visible -->
+    <div class="barra-fecha">
+      <label for="in-fecha">Fecha de la jornada</label>
+      <div class="fecha-ctrl">
+        <button type="button" class="nav-dia" id="dia-prev" title="Día anterior" aria-label="Día anterior">&#8249;</button>
+        <input type="date" id="in-fecha" class="input">
+        <button type="button" class="nav-dia" id="dia-next" title="Día siguiente" aria-label="Día siguiente">&#8250;</button>
+        <button type="button" class="btn btn-hoy" id="dia-hoy">Hoy</button>
+      </div>
+      <span class="fecha-larga" id="fecha-larga"></span>
+    </div>
+
+    <div class="cols">
+
+      <div class="col-main">
+
+        <!-- Aviso si falta configuración -->
+        <div id="aviso-config" class="card empty-notice" hidden>
+          <h2>Primero configura los datos</h2>
+          <p>Para poder registrar horas necesitas tener al menos un <strong>empleado</strong>, una
+             <strong>actividad</strong> y un <strong>número de casa</strong> guardados.</p>
+          <button class="btn btn-primary" data-goto="config">Ir a Configuración</button>
+        </div>
+
+        <!-- Turnos abiertos: entradas a las que todavía les falta la salida.
+             Mientras no haya ninguno la tarjeta no existe. -->
+        <div id="turnos" class="card" hidden>
+          <div class="card-head">
+            <h2>Turnos abiertos</h2>
+            <span class="tag" id="turnos-tag"></span>
+          </div>
+          <ul id="turnos-lista" class="turnos"></ul>
+        </div>
+
+        <!-- Formulario de registro -->
+        <form id="form-registro" class="card" autocomplete="off" novalidate>
+          <div class="card-head">
+            <h2>Nuevo registro</h2>
+          </div>
+
+          <div class="grid-campos">
+
+            <div class="field">
+              <label for="in-empleado">Nombre del empleado</label>
+              <div class="combo" id="combo-empleado">
+                <input type="text" id="in-empleado" class="input combo-input" role="combobox"
+                       aria-expanded="false" aria-autocomplete="list" aria-controls="list-empleado"
+                       placeholder="Escribe para buscar…">
+                <button type="button" class="combo-clear" aria-label="Limpiar">&times;</button>
+                <ul class="combo-list" id="list-empleado" role="listbox" hidden></ul>
+              </div>
+              <p class="error" data-error="empleado" hidden></p>
+            </div>
+
+            <div class="field">
+              <label for="in-actividad">Actividad realizada</label>
+              <div class="combo" id="combo-actividad">
+                <input type="text" id="in-actividad" class="input combo-input" role="combobox"
+                       aria-expanded="false" aria-autocomplete="list" aria-controls="list-actividad"
+                       placeholder="Escribe para buscar…">
+                <button type="button" class="combo-clear" aria-label="Limpiar">&times;</button>
+                <ul class="combo-list" id="list-actividad" role="listbox" hidden></ul>
+              </div>
+              <p class="error" data-error="actividad" hidden></p>
+            </div>
+
+            <div class="field">
+              <label for="in-casa">Número de casa</label>
+              <div class="combo" id="combo-casa">
+                <input type="text" id="in-casa" class="input combo-input" role="combobox"
+                       aria-expanded="false" aria-autocomplete="list" aria-controls="list-casa"
+                       placeholder="Escribe para buscar…">
+                <button type="button" class="combo-clear" aria-label="Limpiar">&times;</button>
+                <ul class="combo-list" id="list-casa" role="listbox" hidden></ul>
+              </div>
+              <p class="error" data-error="casa" hidden></p>
+            </div>
+
+            <!-- Dos maneras de decir lo mismo: el desplegable de siempre o el
+                 reloj. Se ve una sola a la vez y se recuerda la última usada. -->
+            <div class="field">
+              <span class="rotulo" id="rotulo-horas">Horas trabajadas</span>
+
+              <div class="modo-horas" role="group" aria-labelledby="rotulo-horas">
+                <button type="button" class="modo-btn is-on" data-modo="cantidad"
+                        aria-pressed="true">Cantidad de horas</button>
+                <button type="button" class="modo-btn" data-modo="reloj"
+                        aria-pressed="false">Entrada y salida</button>
+              </div>
+
+              <select id="sel-horas" class="input select" aria-label="Cantidad de horas"></select>
+
+              <div class="par-reloj" id="campo-reloj" hidden>
+                <div class="field-sub">
+                  <label for="in-entrada">Entrada</label>
+                  <input type="time" id="in-entrada" class="input">
+                </div>
+                <div class="field-sub">
+                  <label for="in-salida">Salida</label>
+                  <input type="time" id="in-salida" class="input">
+                </div>
+              </div>
+
+              <p class="hint" id="horas-calculo" hidden></p>
+
+              <!-- Recordatorio, no cuenta: la hora de almuerzo va dentro de las
+                   del día y no se descuenta. El número lo pone app.js. -->
+              <p class="nota" id="nota-almuerzo"></p>
+
+              <p class="error" data-error="horas" hidden></p>
+            </div>
+
+            <!-- La nota es la excepción y no la regla, así que el campo no ocupa
+                 lugar hasta que se pide: en el celular el formulario ya es largo. -->
+            <div class="field">
+              <button type="button" class="btn-nota" id="btn-nota">+ Agregar una nota</button>
+              <div class="nota-caja" id="nota-caja" hidden>
+                <label for="in-nota">Nota</label>
+                <input type="text" id="in-nota" class="input"
+                       placeholder="Ej.: 1 h esperando material">
+                <p class="nota">Sale en el Excel, en su propia columna.</p>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="card-foot">
+            <p id="restantes-hint" class="hint"></p>
+            <button type="submit" class="btn btn-primary" id="btn-registrar">Registrar horas</button>
+            <!-- Solo con el reloj: guarda la entrada y deja el turno abierto para
+                 ponerle la salida cuando la persona se vaya. -->
+            <button type="button" class="btn btn-linea" id="btn-turno" hidden>Abrir turno</button>
+          </div>
+        </form>
+
+        <!-- Banner de jornada cumplida. El número lo pone app.js: sale de JORNADA. -->
+        <div id="banner-completo" class="banner" hidden>
+          <div class="banner-check" aria-hidden="true">&#10003;</div>
+          <div class="banner-body">
+            <h2 id="banner-titulo">Jornada cumplida</h2>
+            <p id="banner-sub"></p>
+          </div>
+          <button type="button" class="btn btn-ghost" id="btn-otro-empleado">Registrar otro empleado</button>
+          <!-- La jornada está cumplida, pero se puede seguir: horas extra. -->
+          <button type="button" class="btn btn-ghost" id="btn-horas-extra">Agregar horas extra</button>
+        </div>
+
+        <!-- Detalle de la jornada del empleado seleccionado -->
+        <div id="detalle" class="card" hidden>
+          <div class="card-head">
+            <h2>Jornada de <span id="detalle-nombre" class="verde"></span></h2>
+            <span id="detalle-fecha" class="tag"></span>
+          </div>
+
+          <div class="progreso">
+            <div class="progreso-barra"><span id="progreso-fill"></span></div>
+            <div class="progreso-num"><strong id="progreso-total">0</strong><span id="progreso-limite"></span><span
+                 class="chip-extra" id="progreso-extra" hidden></span></div>
+          </div>
+
+          <div class="tabla-wrap">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Actividad</th>
+                  <th>Casa</th>
+                  <th class="num">Horas</th>
+                  <th class="acc"></th>
+                </tr>
+              </thead>
+              <tbody id="detalle-filas"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Panel lateral: resumen del día -->
+      <aside class="col-side">
+        <div class="card">
+          <div class="card-head">
+            <h2>Resumen del día</h2>
+            <span id="resumen-fecha" class="tag"></span>
+          </div>
+          <ul id="resumen-lista" class="resumen"></ul>
+        </div>
+      </aside>
+
+    </div>
+  </section>
+
+  <!-- ============ VISTA HORAS ============ -->
+  <section id="view-horas" class="view" hidden>
+    <div class="card">
+      <div class="card-head">
+        <h2>Horas por empleado</h2>
+        <span class="tag" id="horas-tag"></span>
+      </div>
+
+      <div class="horas-ctrl">
+        <div class="field">
+          <label for="horas-modo">Ver por</label>
+          <select id="horas-modo" class="input select">
+            <option value="dia">Día</option>
+            <option value="semana" selected>Semana</option>
+            <option value="mes">Mes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="horas-fecha">Fecha dentro del rango</label>
+          <div class="fecha-ctrl">
+            <button type="button" class="nav-dia" id="horas-prev" aria-label="Rango anterior">&#8249;</button>
+            <input type="date" id="horas-fecha" class="input">
+            <button type="button" class="nav-dia" id="horas-next" aria-label="Rango siguiente">&#8250;</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="horas-titulo" id="horas-titulo"></p>
+
+      <div class="horas-cifras" id="horas-cifras"></div>
+
+      <ul class="resumen horas-lista" id="horas-lista"></ul>
+
+      <div class="card-foot">
+        <p class="hint" id="horas-nota"></p>
+        <button type="button" class="btn btn-primary" id="horas-csv">Exportar a Excel</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VISTA CONFIGURACIÓN ============ -->
+  <section id="view-config" class="view" hidden>
+    <div class="config-grid">
+
+      <div class="card">
+        <div class="card-head"><h2>Empleados</h2><span class="tag" id="conteo-empleados">0</span></div>
+        <form class="alta" data-alta="empleados" autocomplete="off">
+          <input type="text" class="input" placeholder="Nombre del empleado" aria-label="Nombre del empleado">
+          <button type="submit" class="btn btn-primary">Agregar</button>
+        </form>
+        <p class="error" data-error-alta="empleados" hidden></p>
+        <ul class="lista" data-lista="empleados"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Actividades</h2><span class="tag" id="conteo-actividades">0</span></div>
+        <form class="alta" data-alta="actividades" autocomplete="off">
+          <input type="text" class="input" placeholder="Actividad realizada" aria-label="Actividad realizada">
+          <button type="submit" class="btn btn-primary">Agregar</button>
+        </form>
+        <p class="error" data-error-alta="actividades" hidden></p>
+        <ul class="lista" data-lista="actividades"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Casas</h2><span class="tag" id="conteo-casas">0</span></div>
+        <form class="alta" data-alta="casas" autocomplete="off">
+          <input type="text" class="input" placeholder="Número de casa" aria-label="Número de casa">
+          <button type="submit" class="btn btn-primary">Agregar</button>
+        </form>
+        <p class="error" data-error-alta="casas" hidden></p>
+        <ul class="lista" data-lista="casas"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Acceso</h2><span class="tag" id="cuenta-usuario"></span></div>
+        <form id="form-clave" class="alta-clave" autocomplete="off" novalidate>
+
+          <div class="field">
+            <label for="clave-actual">Contraseña actual</label>
+            <div class="clave-wrap">
+              <input type="password" id="clave-actual" class="input" autocomplete="current-password">
+              <button type="button" class="ver-clave" data-ver="clave-actual"
+                      aria-label="Mostrar contraseña">Ver</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="clave-nueva">Contraseña nueva</label>
+            <div class="clave-wrap">
+              <input type="password" id="clave-nueva" class="input" autocomplete="new-password">
+              <button type="button" class="ver-clave" data-ver="clave-nueva"
+                      aria-label="Mostrar contraseña">Ver</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="clave-nueva2">Repetir contraseña nueva</label>
+            <input type="password" id="clave-nueva2" class="input" autocomplete="new-password">
+          </div>
+
+          <p class="error" id="clave-error" hidden></p>
+          <p class="hint" id="clave-ok" hidden><strong>Contraseña actualizada.</strong></p>
+
+          <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
+        </form>
+      </div>
+
+      <details class="card card-ancha nube-panel" id="nube-panel">
+        <summary class="card-head">
+          <h2>Sincronización</h2>
+          <span class="tag" id="nube-tag">Apagada</span>
+        </summary>
+
+        <p class="hint nube-intro">
+          Guarda empleados, actividades, casas y registros en un bin de <strong>jsonbin.io</strong>
+          para poder abrirlos desde otro dispositivo. El usuario y la contraseña
+          <strong>no</strong> se sincronizan: quedan en cada dispositivo.
+        </p>
+
+        <form id="form-nube" class="alta-clave" autocomplete="off" novalidate>
+
+          <p class="nube-dato">Bin de la empresa: <code id="nube-bin-texto"></code></p>
+
+          <p class="error" id="nube-error" hidden></p>
+          <p class="hint" id="nube-info"></p>
+
+          <div class="nube-botones">
+            <button type="submit" class="btn btn-primary" id="nube-conectar">Conectar y sincronizar</button>
+            <button type="button" class="btn btn-linea" id="nube-ahora" hidden>Sincronizar ahora</button>
+            <button type="button" class="btn btn-linea" id="nube-desconectar" hidden>Desconectar</button>
+          </div>
+        </form>
+
+        <p class="acceso-nota">
+          La sincronización es automática: se hace al abrir la app y después
+          <strong id="nube-ritmo"></strong>, mientras esta pestaña esté a la vista. Si la pestaña
+          queda en segundo plano, o si nadie toca nada por unos minutos, las revisiones se pausan
+          y se reanudan solas: es para no gastar las 10.000 peticiones mensuales del plan gratis
+          de jsonbin. El bin y la clave están fijos en el código, iguales en todos los dispositivos.
+          Si dos dispositivos registran horas a la vez <strong>no se pierde ninguna</strong>: los
+          datos se juntan, y algo desaparece solo cuando se borra a propósito.
+        </p>
+      </details>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- Sale solo si el navegador rechaza guardar (almacenamiento lleno o incógnito) -->
+<div class="aviso-guardado" id="aviso-guardado" role="alert" hidden>
+  <strong>Este navegador no está guardando las horas.</strong>
+  Anótalas aparte y revisa si el almacenamiento está lleno o si la ventana es de
+  incógnito. Los registros de esta pantalla se perderán al recargar.
+</div>
+
+<script src="app.js"></script>
+<script src="nube.js"></script>
+<script src="acceso.js"></script>
+
+<!-- Service worker: lo que hace que Chrome ofrezca instalarla y que abra sin
+     internet. Con la app abierta desde un archivo (file://) no se registra. -->
+<script>
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('Sin service worker:', e));
+  });
+}
+</script>
+</body>
+</html>
