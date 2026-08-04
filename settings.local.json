@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(py --version)",
+      "Bash(npx --version)",
+      "PowerShell(foreach \\($c in @\\('node','npm','python','py','git'\\)\\) { $g = Get-Command $c -ErrorAction SilentlyContinue; if \\($g\\) { \"$c -> $\\($g.Source\\)\" } else { \"$c -> NO\" } })",
+      "PowerShell(& \"C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes\\\\servidor.ps1\" -SinNavegador)",
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\Adelante\\\\Downloads\\\\Reporte_S33_2026.xlsx\" \"C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes\\\\_prueba.xlsx\" -Force)",
+      "PowerShell(\"listo\")",
+      "PowerShell(\"prueba borrada\")",
+      "PowerShell($s = \"C:\\\\Users\\\\Adelante\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Adelante-OneDrive---Adelante-Desarrollos-Escritorio-app-reportes\\\\13e2a292-d4bd-4703-8f66-543040ba18e5\\\\scratchpad\"; & \"$s\\\\dump.ps1\" -Root \"$s\\\\xlsx\" -Sheet sheet8.xml -MaxRow 6)",
+      "PowerShell($p = \"C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes\"; Copy-Item \"C:\\\\Users\\\\Adelante\\\\Downloads\\\\Reporte_S33_2026.xlsx\" \"$p\\\\_prueba.xlsx\" -Force; if \\($?\\) { Get-ChildItem \"$p\\\\_prueba.xlsx\" | Select-Object Name, Length })",
+      "PowerShell(Remove-Item \"C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes\\\\_prueba.xlsx\" -Force -Confirm:$false)",
+      "PowerShell(if \\($?\\) { \"borrado\" })",
+      "PowerShell($p = \"C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes\"; Copy-Item \"C:\\\\Users\\\\Adelante\\\\Downloads\\\\Reporte_S33_2026.xlsx\" \"$p\\\\_prueba.xlsx\" -Force; if \\($?\\) { \"copiado\" })",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes\\\\servidor.ps1\")",
+      "Bash(powershell -NoProfile -Command 'Get-Process -Name powershell -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID } | ForEach-Object { $_ } | Out-Null; \\(Get-NetTCPConnection -LocalPort 8123 -State Listen -ErrorAction SilentlyContinue | Measure-Object\\).Count')",
+      "Bash(powershell -NoProfile -Command '$p = \\(Get-NetTCPConnection -LocalPort 8123 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { Stop-Process -Id $p -Force }; Start-Sleep -Milliseconds 400; \\(Get-NetTCPConnection -LocalPort 8123 -State Listen -ErrorAction SilentlyContinue | Measure-Object\\).Count')",
+      "Bash(powershell -NoProfile -Command \"\\(Get-NetTCPConnection -LocalPort 8123 -State Listen -ErrorAction SilentlyContinue | Measure-Object\\).Count\")",
+      "Bash(powershell -NoProfile -Command 'Get-ChildItem -Path '\\\\''C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes'\\\\'' -Recurse -Force | Where-Object { -not $_.PSIsContainer } | Select-Object @{n='\\\\''Ruta'\\\\'';e={$_.FullName.Replace\\('\\\\''C:\\\\Users\\\\Adelante\\\\OneDrive - Adelante Desarrollos\\\\Escritorio\\\\app reportes\\\\'\\\\'','\\\\'''\\\\''\\)}}, @{n='\\\\''KB'\\\\'';e={[math]::Round\\($_.Length/1KB,1\\)}} | Sort-Object Ruta | Format-Table -AutoSize | Out-String -Width 120')"
+    ]
+  }
+}
