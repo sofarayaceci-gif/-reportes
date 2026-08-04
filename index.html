@@ -77,6 +77,20 @@
 
   <!-- ══════════════ HISTORIAL ══════════════ -->
   <section class="vista" id="vista-historial">
+
+    <!-- La nube. No hay nada que escribir ni que elegir: al abrir la app se
+         sincroniza sola y esto solo cuenta cómo fue. El botón aparece únicamente
+         si algo falló, para poder reintentar sin cerrar la app. -->
+    <div class="nube" id="nube">
+      <div class="nube__fila">
+        <div class="nube__datos">
+          <div class="nube__titulo">Sincronización</div>
+          <div class="nube__meta" id="nubeMeta">Sincronizando…</div>
+        </div>
+        <button type="button" class="boton" id="btnReintentar" hidden>Reintentar</button>
+      </div>
+    </div>
+
     <h2 class="titulo">Historial de reportes</h2>
     <p class="ayuda">El reporte activo es el que usa el buscador. Tocá otro para cambiarlo.</p>
     <ul class="historial" id="historial"></ul>
@@ -109,6 +123,7 @@
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="js/textos.js"></script>
 <script src="js/almacen.js"></script>
+<script src="js/nube.js"></script>
 <script src="js/excel.js"></script>
 <script src="js/app.js"></script>
 </body>

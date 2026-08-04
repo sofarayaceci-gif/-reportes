@@ -17,7 +17,8 @@
     grupo: '',             // filtro de grupo activo; vacío = todas
     subgrupo: '',          // filtro de bloque dentro del grupo; vacío = todos
     registro: '',          // 'si' = con check, 'no' = sin check, vacío = todas
-    marcas: {}             // { casaNorm: fecha ISO en que se copió }
+    marcas: {},            // { casaNorm: fecha ISO en que se copió }
+    nube: { sincronizando: false, ultima: null, error: '' }
   };
 
   /* ── Utilidades ─────────────────────────────────────────────────────────── */
@@ -106,12 +107,20 @@
 
   function marcarCasa(casaNorm) {
     estado.marcas[casaNorm] = new Date().toISOString();
-    return guardarMarcas();
+    return guardarMarcas().then(() => {
+      /* A la nube se manda sin esperar y sin molestar si falla: lo importante
+         ya quedó guardado en el aparato, y la próxima sincronización la sube. */
+      const sola = {};
+      sola[casaNorm] = estado.marcas[casaNorm];
+      Nube.subirMarcas(sola).catch(() => {});
+    });
   }
 
   function quitarMarca(casaNorm) {
     delete estado.marcas[casaNorm];
-    return guardarMarcas();
+    return guardarMarcas().then(() => {
+      Nube.borrarMarca(casaNorm).catch(() => {});
+    });
   }
 
   /* Las vencidas se borran al abrir, para que la lista no crezca sin fin. */
@@ -456,6 +465,9 @@
       }
 
       const reporte = {
+        /* El uid lo pone el aparato, no la base. Así el mismo reporte tiene la
+           misma identidad acá, en el celular y en la nube. */
+        uid: nuevoUid(),
         nombre: archivo.name,
         fecha: new Date().toISOString(),
         hoja: hoja,
@@ -486,6 +498,8 @@
           mostrarVista('buscar');
           $('#busqueda').focus();
           avisar(filas.length + ' casas importadas · ' + conMedidor + ' con medidor provisional');
+          /* Sube por detrás, sin tapar el aviso de arriba con otro. */
+          return sincronizar(true);
         });
     }).catch(error => avisar(error.message, true));
   }
@@ -522,6 +536,132 @@
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
+     NUBE
+
+     Lo local manda para trabajar: IndexedDB sigue siendo la copia con la que
+     la app funciona, y esto solo la empareja con la nube cuando hay internet y
+     sesión. Sin entrar, o sin señal, la app anda igual que siempre.
+     ══════════════════════════════════════════════════════════════════════════ */
+  function nuevoUid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    /* Respaldo para cuando no hay contexto seguro (abierta con doble clic). */
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const n = Math.random() * 16 | 0;
+      return (c === 'x' ? n : (n & 0x3 | 0x8)).toString(16);
+    });
+  }
+
+  /* El _filasCache es solo para la pantalla; no tiene por qué ir a guardarse. */
+  function sinCache(reporte) {
+    const limpio = Object.assign({}, reporte);
+    delete limpio._filasCache;
+    return limpio;
+  }
+
+  /* De a uno y no todos juntos: son pocos y así no se atropellan. */
+  function enFila(lista, hacer) {
+    return lista.reduce((cadena, item) => cadena.then(() => hacer(item)), Promise.resolve());
+  }
+
+  /* Los reportes importados antes de que existiera la nube no traen uid, y sin
+     uid no hay con qué emparejarlos. Se les pone uno la primera vez. */
+  function ponerUidsQueFalten() {
+    const sinUid = estado.reportes.filter(reporte => !reporte.uid);
+    if (!sinUid.length) return Promise.resolve();
+    return enFila(sinUid, reporte => {
+      reporte.uid = nuevoUid();
+      return Almacen.actualizarReporte(sinCache(reporte));
+    });
+  }
+
+  function sincronizarReportes() {
+    return Nube.listarReportes().then(remotos => {
+      const locales = estado.reportes.filter(r => r.uid);
+      const uidsRemotos = remotos.map(r => r.uid);
+      const uidsLocales = locales.map(r => r.uid);
+
+      const porSubir = locales.filter(r => uidsRemotos.indexOf(r.uid) === -1);
+      const porBajar = remotos.filter(r => uidsLocales.indexOf(r.uid) === -1);
+
+      return enFila(porSubir, reporte =>
+        Almacen.filasDeReporte(reporte.id)
+          .then(filas => Nube.subirReporte(sinCache(reporte), filas))
+      ).then(() => enFila(porBajar, remoto =>
+        Nube.filasDeReporte(remoto.uid).then(filas => Almacen.guardarReporte({
+          uid: remoto.uid,
+          nombre: remoto.nombre,
+          fecha: remoto.fecha,
+          hoja: remoto.hoja,
+          totalFilas: remoto.total_filas,
+          mapeo: remoto.mapeo
+        }, filas, false))   // false: bajar un reporte no le cambia el activo
+      ));
+    });
+  }
+
+  /* Las marcas se juntan en vez de que una lista le gane a la otra: para cada
+     casa queda la fecha más nueva. Si las dos tienen algo distinto, nunca se
+     pierde una marca. Lo peor que puede pasar es que reaparezca una que
+     quitaste sin señal, y eso se arregla quitándola otra vez. */
+  function sincronizarMarcas() {
+    return Nube.leerMarcas().then(remotas => {
+      const unidas = Object.assign({}, remotas);
+      Object.keys(estado.marcas).forEach(casa => {
+        const local = estado.marcas[casa];
+        if (!unidas[casa] || new Date(local) > new Date(unidas[casa])) unidas[casa] = local;
+      });
+      estado.marcas = unidas;
+
+      return limpiarMarcasVencidas()
+        .then(() => guardarMarcas())
+        .then(() => Nube.subirMarcas(estado.marcas))
+        /* Y se limpian de la nube las que ya se vencieron acá. */
+        .then(() => Nube.borrarMarcasQueSobran(estado.marcas));
+    });
+  }
+
+  function sincronizar(silencioso) {
+    if (estado.nube.sincronizando) return Promise.resolve();
+
+    estado.nube.sincronizando = true;
+    estado.nube.error = '';
+    pintarNube();
+
+    return ponerUidsQueFalten()
+      .then(() => sincronizarReportes())
+      .then(() => sincronizarMarcas())
+      .then(() => recargarTodo())
+      .then(() => {
+        estado.nube.ultima = new Date().toISOString();
+        estado.nube.sincronizando = false;
+        pintarNube();
+      })
+      .catch(error => {
+        estado.nube.sincronizando = false;
+        estado.nube.error = error.message;
+        pintarNube();
+        if (!silencioso) avisar(error.message, true);
+      });
+  }
+
+  function horaCorta(iso) {
+    const f = new Date(iso);
+    return isNaN(f) ? '' : f.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function pintarNube() {
+    const hayError = !!estado.nube.error;
+    $('#nube').classList.toggle('nube--error', hayError);
+    $('#btnReintentar').hidden = !hayError;
+    $('#nubeMeta').textContent =
+      estado.nube.sincronizando ? 'Sincronizando…'
+        : hayError ? estado.nube.error
+          : estado.nube.ultima
+            ? 'Al día · ' + horaCorta(estado.nube.ultima)
+            : 'Al abrir la app se sincroniza sola.';
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
      CARGA
      ══════════════════════════════════════════════════════════════════════════ */
   function recargarTodo() {
@@ -550,6 +690,7 @@
         : 'Sin reportes';
       refrescarVistaBuscar();
       pintarHistorial();
+      pintarNube();
     });
   }
 
@@ -643,9 +784,24 @@
         const id = Number(borrar.dataset.borrar);
         const reporte = estado.reportes.find(r => r.id === id);
         if (!confirm('¿Borrar «' + (reporte ? reporte.nombre : 'este reporte') + '» del historial?')) return;
-        Almacen.borrarReporte(id).then(() => recargarTodo()).then(() => avisar('Reporte borrado'));
+        const uid = reporte && reporte.uid;
+        Almacen.borrarReporte(id)
+          .then(() => {
+            /* También en la nube, si no volvería a bajar en la próxima
+               sincronización. Si no hay señal, eso es justo lo que pasa. */
+            if (!uid) return null;
+            return Nube.borrarReporte(uid).catch(() => {
+              avisar('Se borró acá, pero no en la nube: sin conexión.', true);
+            });
+          })
+          .then(() => recargarTodo())
+          .then(() => avisar('Reporte borrado'));
       }
     });
+
+    /* ── La nube ──────────────────────────────────────────────────────────
+       Lo único que hay que tocar es reintentar, y solo si algo falló. */
+    $('#btnReintentar').addEventListener('click', () => sincronizar());
 
     /* Arrastrar y soltar el Excel en cualquier parte, sin ninguna pantalla
        encima: lo único que cambia es el clip de la barra, que se marca
@@ -730,7 +886,11 @@
   /* ── Arranque ───────────────────────────────────────────────────────────── */
   conectarEventos();
   registrarServicio();
-  recargarTodo().catch(error => {
+  recargarTodo().then(() => {
+    /* Al abrir se sincroniza sola, en silencio: si no hay señal, no molesta con
+       avisos y la app funciona con lo local. El estado se ve en Historial. */
+    sincronizar(true);
+  }).catch(error => {
     avisar('No se pudo abrir el guardado local: ' + error.message, true);
   });
 })();

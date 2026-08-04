@@ -12,7 +12,7 @@
    descarta el caché viejo y vuelve a bajar todo del servidor, así no queda
    ningún archivo a medias. La pantalla que ya está abierta sigue con lo viejo:
    los cambios se ven al cerrarla y volver a abrirla. */
-const CACHE = 'reportes-v5';
+const CACHE = 'reportes-v7';
 
 const ARCHIVOS = [
   '.',
@@ -21,6 +21,7 @@ const ARCHIVOS = [
   'css/estilos.css',
   'js/textos.js',
   'js/almacen.js',
+  'js/nube.js',
   'js/excel.js',
   'js/app.js',
   'vendor/xlsx.full.min.js',

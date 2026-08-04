@@ -122,20 +122,68 @@ abrirla**. La primera vez la app renueva su copia guardada, y la segunda ya mues
 el cambio.
 
 > Si el cambio no aparece, subí en uno el número de `CACHE` en `sw.js`
-> (`reportes-v5` → `reportes-v6`) y repetí los dos pasos.
+> (`reportes-v7` → `reportes-v8`) y repetí los dos pasos.
+
+## La nube (ver lo mismo en la compu y en el celular)
+
+La app está publicada en **https://sofarayaceci-gif.github.io/-reportes/**. Ese es
+el enlace que se abre en cualquier aparato y el que se instala como app.
+
+**No hay que entrar ni escribir nada.** Se abre el enlace y se sincroniza sola por
+detrás: los reportes y las marcas de «añadido». En la pestaña **Historial**, arriba,
+se ve cómo fue la última vez, y si algo falló aparece un botón de *Reintentar*.
+
+> **Lo local sigue mandando.** IndexedDB es la copia con la que la app trabaja, y
+> la nube solo la empareja cuando hay internet. **Sin señal la app funciona
+> completa**: importar, buscar, copiar y marcar. Cuando vuelve la conexión, se
+> pone al día sola.
+
+### Detalles que conviene saber
+
+- **Las marcas se juntan, no se reemplazan.** Si dos aparatos tienen algo
+  distinto, para cada casa queda la fecha más nueva. Nunca se pierde una marca.
+  Lo peor que puede pasar es que reaparezca una que quitaste sin señal, y se
+  quita otra vez.
+- **Borrar un reporte lo borra en la nube también.** Si no hay señal en ese
+  momento, avisa: se borró en el aparato pero no en la nube, así que va a volver
+  a bajar en la próxima sincronización.
+- **Cuál reporte está activo es de cada aparato.** Si cambiás de reporte en la
+  compu, el celular sigue con el suyo. Se puede hacer que se comparta si hace
+  falta.
+
+### ⚠️ La nube va abierta, a propósito
+
+En `js/nube.js` hay una clave (`sb_publishable_…`). Va dentro de la página y el
+repositorio es público, así que **cualquiera que la encuentre puede leer, cambiar
+y borrar lo que haya en la nube**. Se decidió así para que no haya que entrar con
+contraseña en cada aparato.
+
+Lo que hace que eso no sea grave:
+
+- Son datos de avance de obra, no datos personales ni contraseñas.
+- **Cada aparato conserva su copia completa** en IndexedDB. Si alguien vaciara la
+  nube, la compu y el celular siguen con todo.
+- Los `.xlsx` semanales siguen siendo el respaldo de verdad.
+
+Si algún día se quiere cerrar, la nota del final de `supabase/esquema.sql` dice
+qué cambiar: es agregar una columna de usuario, cambiar tres reglas y volver a
+poner un formulario de entrar.
+
+⚠️ La otra clave de Supabase, la que empieza con **`sb_secret_`**, **no va nunca**
+en ningún archivo de la app. Esa se salta hasta las reglas de la base.
 
 ## Los datos
 
-Todo se guarda **solo en este equipo** (IndexedDB del navegador). Nada se sube a
-internet, y no hay botón de respaldo: no hace falta.
+Los reportes se guardan **en este equipo** (IndexedDB del navegador) y también en
+la nube. No hay botón de respaldo: no hace falta.
 
 La razón es que la app no guarda casi **nada** que no se pueda regenerar. Todo lo
 que muestra sale del Excel. Si algún día se limpian los datos de Chrome, se vuelven
 a importar los reportes y queda igual que antes.
 
-> Lo único que no se regenera son las marcas de «añadido», porque salen de lo que
-> copiaste y no del Excel. Si se limpian los datos de Chrome se pierden, pero como
-> duran 7 días tampoco es mucho lo que hay que perder.
+Lo único que no se regenera del Excel son las marcas de «añadido», porque salen de
+lo que copiaste. **Con la nube ya no se pierden**: si se limpian los datos de
+Chrome, al volver a abrir la app bajan de nuevo.
 
 > Los `.xlsx` semanales son el respaldo real. Mientras los tengas guardados, no
 > hay nada que perder.
@@ -150,6 +198,8 @@ a importar los reportes y queda igual que antes.
 | `js/textos.js` | Los textos, la relación % → etapa, la regla del medidor, los grupos y los bloques |
 | `js/excel.js` | Lectura del `.xlsx` y reconocimiento de hoja y columnas |
 | `js/almacen.js` | Guardado local |
+| `js/nube.js` | Sincronización con Supabase (subir y bajar) |
+| `supabase/esquema.sql` | Las tablas y las reglas de acceso de la base |
 | `js/app.js` | Búsqueda, filtros, marcas de copiado, importación, historial |
 | `sw.js` | Funcionamiento sin internet |
 | `servidor.ps1` | Servidor local |

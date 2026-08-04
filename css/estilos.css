@@ -515,6 +515,31 @@ input:focus { outline: 2px solid var(--verde); outline-offset: -1px; }
 .tabla tr:last-child td { border-bottom: 0; }
 .tabla .num { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* ══ La nube ═════════════════════════════════════════════════════════════
+   Vive arriba del historial, porque es de lo mismo: qué reportes hay. */
+.nube {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-alt);
+  padding: .75rem;
+  margin-bottom: 1.25rem;
+}
+.nube:empty { display: none; }
+
+.nube__fila {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+}
+.nube__datos { flex: 1; min-width: 0; }
+
+.nube__titulo { font-weight: 600; font-size: .875rem; }
+.nube__meta { font-size: .75rem; color: var(--tinta-suave); }
+
+/* Cuando algo falló, el estado se pone en rojo: es lo único que hay que mirar. */
+.nube--error { border-color: #e6cfc9; background: #fbf3f1; }
+.nube--error .nube__meta { color: var(--rojo); }
+
 /* ══ Historial ═══════════════════════════════════════════════════════════ */
 .historial { list-style: none; margin: 0; padding: 0; }
 

@@ -72,16 +72,29 @@ const Almacen = (() => {
 
   /* ── Reportes ─────────────────────────────────────────────────────────── */
 
-  /* Guarda un reporte con sus filas y lo deja como reporte activo. */
-  function guardarReporte(reporte, filas) {
+  /* Guarda un reporte con sus filas. Por defecto lo deja como reporte activo,
+     que es lo que se quiere al importar un Excel; los que bajan de la nube se
+     guardan con activar=false para no cambiarle el reporte a nadie por detrás. */
+  function guardarReporte(reporte, filas, activar) {
+    const dejarActivo = activar !== false;
     return transaccion(['reportes', 'filas', 'ajustes'], 'readwrite').then(tx => {
       const almacenReportes = tx.objectStore('reportes');
       const almacenFilas = tx.objectStore('filas');
       return comoPromesa(almacenReportes.add(reporte)).then(id => {
         filas.forEach(fila => almacenFilas.add(Object.assign({}, fila, { reporteId: id })));
-        tx.objectStore('ajustes').put({ clave: 'reporteActivo', valor: id });
+        if (dejarActivo) tx.objectStore('ajustes').put({ clave: 'reporteActivo', valor: id });
         return finTransaccion(tx).then(() => id);
       });
+    });
+  }
+
+  /* Vuelve a guardar un reporte que ya existe, con su mismo id. Se usa para
+     ponerle el uid a los reportes que se importaron antes de que existiera la
+     sincronización: sin uid no hay forma de emparejarlos con la nube. */
+  function actualizarReporte(reporte) {
+    return transaccion(['reportes'], 'readwrite').then(tx => {
+      tx.objectStore('reportes').put(reporte);
+      return finTransaccion(tx);
     });
   }
 
@@ -127,7 +140,7 @@ const Almacen = (() => {
 
   return {
     leerAjuste, guardarAjuste,
-    guardarReporte, listarReportes, filasDeReporte, borrarReporte,
+    guardarReporte, actualizarReporte, listarReportes, filasDeReporte, borrarReporte,
     historialDeCasa
   };
 })();
