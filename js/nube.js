@@ -139,6 +139,22 @@ const Nube = (() => {
     return pedir('reportes?uid=eq.' + encodeURIComponent(uid), { metodo: 'DELETE' });
   }
 
+  /* ── Tablas que van por número de casa ────────────────────────────────────
+     Marcas, códigos y terminadas comparten la misma forma: una fila por casa,
+     con casa_norm de llave. Lo único distinto es qué columnas llevan.        */
+
+  /* La dirección de un DELETE que borra todo lo que ya no esté en el aparato.
+
+     Los números de casa normalizados son solo letras y dígitos, así que entran
+     tal cual en la dirección; el filtro está igual, para no dejar pasar nada
+     raro a la URL. Y el «not.is.null», que siempre da verdadero, está para que
+     nunca salga un DELETE sin condición. */
+  function soloLosQueSobran(tabla, mapaLocal) {
+    const vivas = Object.keys(mapaLocal || {}).filter(c => /^[A-Z0-9]+$/.test(c));
+    const filtro = vivas.length ? '&casa_norm=not.in.(' + vivas.join(',') + ')' : '';
+    return tabla + '?casa_norm=not.is.null' + filtro;
+  }
+
   /* ── Marcas ───────────────────────────────────────────────────────────── */
 
   function leerMarcas() {
@@ -172,18 +188,99 @@ const Nube = (() => {
      porque subirMarcas solo agrega y actualiza: sin esto, una marca vencida
      seguiría viva en la nube y volvería a bajar. */
   function borrarMarcasQueSobran(marcasLocales) {
-    /* Los números de casa normalizados son solo letras y dígitos, así que
-       entran tal cual en la dirección. El filtro está igual, para no dejar
-       pasar nada raro a la URL. */
-    const vivas = Object.keys(marcasLocales || {}).filter(c => /^[A-Z0-9]+$/.test(c));
-    const filtro = vivas.length ? '&casa_norm=not.in.(' + vivas.join(',') + ')' : '';
-    /* El «not.is.null» es un filtro que siempre da verdadero: está para no
-       mandar nunca un DELETE sin condición. */
-    return pedir('marcas?casa_norm=not.is.null' + filtro, { metodo: 'DELETE' });
+    return pedir(soloLosQueSobran('marcas', marcasLocales), { metodo: 'DELETE' });
+  }
+
+  /* ── Códigos ──────────────────────────────────────────────────────────────
+     El código que se le escribe a cada casa. Lleva fecha para poder decidir
+     cuál gana cuando la compu y el celular tienen cosas distintas. */
+
+  function leerCodigos() {
+    return pedir('codigos?select=casa_norm,codigo,fecha', { prefer: 'return=representation' })
+      .then(lista => {
+        const mapa = {};
+        (lista || []).forEach(c => { mapa[c.casa_norm] = { codigo: c.codigo, fecha: c.fecha }; });
+        return mapa;
+      });
+  }
+
+  function subirCodigos(codigos) {
+    const filas = Object.keys(codigos || {}).map(casa => ({
+      casa_norm: casa,
+      codigo: codigos[casa].codigo,
+      fecha: codigos[casa].fecha
+    }));
+    if (!filas.length) return Promise.resolve(null);
+    return pedir('codigos', {
+      metodo: 'POST',
+      cabeceras: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      cuerpo: filas
+    });
+  }
+
+  /* Borrar un código se manda al momento. No hay una limpieza al sincronizar
+     como la de las marcas: acá nada se vence solo, así que después de juntar
+     las dos listas no puede sobrar nada que no se haya borrado ya. */
+  function borrarCodigo(casaNorm) {
+    return pedir('codigos?casa_norm=eq.' + encodeURIComponent(casaNorm), { metodo: 'DELETE' });
+  }
+
+  /* ── Terminadas ───────────────────────────────────────────────────────────
+     Las casas que llegaron al 100 % y ya se registraron. A diferencia de las
+     marcas, estas no se vencen: una casa terminada lo está para siempre. */
+
+  function leerTerminadas() {
+    return pedir('terminadas?select=casa_norm,fecha', { prefer: 'return=representation' })
+      .then(lista => {
+        const mapa = {};
+        (lista || []).forEach(t => { mapa[t.casa_norm] = t.fecha; });
+        return mapa;
+      });
+  }
+
+  function subirTerminadas(terminadas) {
+    const filas = Object.keys(terminadas || {}).map(casa => ({
+      casa_norm: casa, fecha: terminadas[casa]
+    }));
+    if (!filas.length) return Promise.resolve(null);
+    return pedir('terminadas', {
+      metodo: 'POST',
+      cabeceras: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      cuerpo: filas
+    });
+  }
+
+  function borrarTerminada(casaNorm) {
+    return pedir('terminadas?casa_norm=eq.' + encodeURIComponent(casaNorm), { metodo: 'DELETE' });
+  }
+
+  /* ── Ajustes ──────────────────────────────────────────────────────────────
+     Una fila por ajuste, con el valor entero en un jsonb. Hoy el único que se
+     sincroniza son los textos del reporte, que se cambian desde la tuerca.
+
+     Acá no se juntan las dos versiones como con las marcas: gana la más
+     nueva, entera. Son textos que se escriben de tanto en tanto y desde un
+     solo lado; mezclar mitad de un aparato y mitad del otro sería peor. */
+
+  function leerAjuste(clave) {
+    return pedir('ajustes?select=valor,fecha&clave=eq.' + encodeURIComponent(clave),
+      { prefer: 'return=representation' })
+      .then(lista => ((lista && lista[0]) ? lista[0] : null));
+  }
+
+  function subirAjuste(clave, valor, fecha) {
+    return pedir('ajustes', {
+      metodo: 'POST',
+      cabeceras: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      cuerpo: [{ clave: clave, valor: valor, fecha: fecha }]
+    });
   }
 
   return {
     listarReportes, subirReporte, filasDeReporte, borrarReporte,
-    leerMarcas, subirMarcas, borrarMarca, borrarMarcasQueSobran
+    leerMarcas, subirMarcas, borrarMarca, borrarMarcasQueSobran,
+    leerCodigos, subirCodigos, borrarCodigo,
+    leerTerminadas, subirTerminadas, borrarTerminada,
+    leerAjuste, subirAjuste
   };
 })();

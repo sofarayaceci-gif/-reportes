@@ -17,7 +17,11 @@
     grupo: '',             // filtro de grupo activo; vacío = todas
     subgrupo: '',          // filtro de bloque dentro del grupo; vacío = todos
     registro: '',          // 'si' = con check, 'no' = sin check, vacío = todas
+    verTerminadas: false,  // la lista muestra las terminadas en vez de las que faltan
     marcas: {},            // { casaNorm: fecha ISO en que se copió }
+    codigos: {},           // { casaNorm: { codigo, fecha } }
+    terminadas: {},        // { casaNorm: fecha ISO en que se dio por terminada }
+    textos: null,          // { etapas: { n: texto }, medidor, fecha } — o null
     nube: { sincronizando: false, ultima: null, error: '' }
   };
 
@@ -149,29 +153,241 @@
     pintarResultados();
   }
 
+  /* ══════════════════════════════════════════════════════════════════════════
+     CÓDIGOS POR CASA
+
+     Un código que se escribe a mano al lado del número. Va por número de casa,
+     igual que las marcas, así que sobrevive al reporte de la semana siguiente,
+     y no se vence nunca.
+
+     No entra en el texto que se copia: es una guía para reconocer la casa en la
+     lista y para poder buscarla por ahí.
+     ══════════════════════════════════════════════════════════════════════════ */
+  /* Lo que hay escrito en el campo y todavía no se aceptó: { casaNorm, valor }.
+     Mientras esto no sea null, el campo va en ámbar y el ✓ está a la vista. */
+  let codigoPendiente = null;
+
+  function codigoDe(casaNorm) {
+    const guardado = estado.codigos[casaNorm];
+    return guardado ? guardado.codigo : '';
+  }
+
+  function guardarCodigos() {
+    return Almacen.guardarAjuste('codigos', estado.codigos);
+  }
+
+  /* Si el código ya está puesto en otra casa, devuelve cuál. Compara
+     normalizado, así «ABC-1» y «abc1» cuentan como el mismo y el aviso salta
+     igual aunque se haya escrito distinto. */
+  function otraCasaConElCodigo(codigo, casaNorm) {
+    const buscado = normalizarCasa(codigo);
+    if (!buscado) return '';
+    const choque = Object.keys(estado.codigos).find(otra =>
+      otra !== casaNorm && normalizarCasa(codigoDe(otra)) === buscado);
+    if (!choque) return '';
+    const fila = estado.filas.find(f => f.casaNorm === choque);
+    return fila ? fila.casa : choque;
+  }
+
+  function ponerCodigo(casaNorm, texto) {
+    /* Un campo vacío no guarda una cadena vacía: borra el código. */
+    const limpio = String(texto || '').trim();
+    if (!limpio) return quitarCodigo(casaNorm);
+
+    estado.codigos[casaNorm] = { codigo: limpio, fecha: new Date().toISOString() };
+    return guardarCodigos().then(() => {
+      /* A la nube sin esperar: lo importante ya quedó en el aparato. */
+      const solo = {};
+      solo[casaNorm] = estado.codigos[casaNorm];
+      Nube.subirCodigos(solo).catch(() => {});
+    });
+  }
+
+  function quitarCodigo(casaNorm) {
+    if (!estado.codigos[casaNorm]) return Promise.resolve();
+    delete estado.codigos[casaNorm];
+    return guardarCodigos().then(() => {
+      Nube.borrarCodigo(casaNorm).catch(() => {});
+    });
+  }
+
+  /* ── El campo del código, en la ficha ─────────────────────────────────────
+     Se guarda solo cuando se acepta: con Enter o con el ✓. Escribir no guarda
+     nada, así un código a medias no queda anotado. */
+  function refrescarEstadoDelCodigo() {
+    const caja = $('#codigo');
+    const campo = $('#codigoCampo');
+    if (!caja || !campo) return;
+
+    const casaNorm = campo.dataset.casaCodigo;
+    const hayCambio = campo.value.trim() !== codigoDe(casaNorm);
+    codigoPendiente = hayCambio ? { casaNorm: casaNorm, valor: campo.value } : null;
+    caja.classList.toggle('codigo--pendiente', hayCambio);
+    $('#btnCodigo').hidden = !hayCambio;
+  }
+
+  /* Avisa —sin bloquear— si el código ya está puesto en otra casa. Se supone
+     único, así que un repetido casi siempre es un dedazo; pero la decisión es
+     de quien lo escribe, no de la app. */
+  function aceptarCodigo() {
+    const campo = $('#codigoCampo');
+    if (!campo) return;
+
+    const casaNorm = campo.dataset.casaCodigo;
+    const valor = campo.value.trim();
+    const repetido = otraCasaConElCodigo(valor, casaNorm);
+
+    ponerCodigo(casaNorm, valor).then(() => {
+      campo.value = codigoDe(casaNorm);
+      refrescarEstadoDelCodigo();
+      pintarResultados();
+      if (repetido) avisar('Ojo: «' + valor + '» ya está en ' + repetido + '.', true);
+      else avisar(valor ? 'Código guardado' : 'Código borrado');
+    }).catch(() => avisar('No se pudo guardar el código.', true));
+  }
+
+  function descartarCodigo() {
+    const campo = $('#codigoCampo');
+    if (!campo) return;
+    campo.value = codigoDe(campo.dataset.casaCodigo);
+    refrescarEstadoDelCodigo();
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     CASAS TERMINADAS
+
+     Una casa queda terminada cuando llega al 100 % de eléctrico y además se
+     registra, o sea se copia su texto. Desde ese momento sale de la lista de
+     trabajo y pasa a la suya, que se abre con la barra de arriba de la lista.
+
+     Esto NO se vence, a diferencia de la marca de «añadido». La marca sirve
+     para saber qué se metió al informe esta semana; una casa terminada lo está
+     para siempre.
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* Hacen falta las dos cosas: que esté anotada como terminada, y que el
+     reporte que se está viendo la traiga en 100 %.
+
+     Lo segundo es lo que la hace volver sola. Si un reporte nuevo la baja del
+     100 % —una corrección en el Excel— reaparece en la lista de trabajo sin
+     que haya que tocar nada, y si más adelante vuelve al 100 %, vuelve a estar
+     terminada. La anotación no se borra por eso: solo deja de aplicar. */
+  function esTerminada(fila) {
+    if (!estado.terminadas[fila.casaNorm]) return false;
+    return etapaDesdePorcentaje(fila.porcentaje) === ETAPA_FINALIZADA;
+  }
+
+  function guardarTerminadas() {
+    return Almacen.guardarAjuste('terminadas', estado.terminadas);
+  }
+
+  function darPorTerminada(casaNorm) {
+    if (estado.terminadas[casaNorm]) return Promise.resolve();
+    estado.terminadas[casaNorm] = new Date().toISOString();
+    return guardarTerminadas().then(() => {
+      const sola = {};
+      sola[casaNorm] = estado.terminadas[casaNorm];
+      Nube.subirTerminadas(sola).catch(() => {});
+    });
+  }
+
+  function devolverTerminada(casaNorm) {
+    delete estado.terminadas[casaNorm];
+    /* Se le quita también la marca de registrada. Tiene que ser así: devolver
+       una casa a la lista es decir «esta no la reporté», y si la marca quedara,
+       ponerAlDiaTerminadas la volvería a sacar en el próximo repaso y el botón
+       no serviría de nada. */
+    delete estado.marcas[casaNorm];
+    return Promise.all([guardarTerminadas(), guardarMarcas()]).then(() => {
+      Nube.borrarTerminada(casaNorm).catch(() => {});
+      Nube.borrarMarca(casaNorm).catch(() => {});
+    });
+  }
+
+  /* Anota como terminadas las casas que están en 100 % y ya tienen la marca de
+     registrada, pero que todavía no figuran acá.
+
+     Esto es lo que hace que la lista sirva desde el primer día: las casas que
+     ya se registraron esta semana entran solas, sin tener que volver a
+     copiarlas una por una. Y no es una migración de una sola vez: la regla
+     sigue valiendo siempre, que es más simple que llevar la cuenta de si ya
+     corrió. Lo que la mantiene coherente es que «Devolver a la lista» quita
+     también la marca. */
+  function ponerAlDiaTerminadas() {
+    const nuevas = {};
+    estado.filas.forEach(fila => {
+      if (estado.terminadas[fila.casaNorm]) return;
+      if (etapaDesdePorcentaje(fila.porcentaje) !== ETAPA_FINALIZADA) return;
+      if (diasDeMarca(fila.casaNorm) === null) return;
+      /* Con la fecha de la marca y no la de ahora: esa es la de verdad. */
+      nuevas[fila.casaNorm] = estado.marcas[fila.casaNorm];
+    });
+    if (!Object.keys(nuevas).length) return Promise.resolve();
+
+    Object.assign(estado.terminadas, nuevas);
+    return guardarTerminadas().then(() => {
+      Nube.subirTerminadas(nuevas).catch(() => {});
+    });
+  }
+
   /* ── Navegación entre vistas ────────────────────────────────────────────── */
+
+  /* Ajustes no tiene botón abajo, así que hay que recordar de dónde se vino
+     para que «Volver» devuelva a la pantalla correcta. */
+  let vistaPrevia = 'buscar';
+
   function mostrarVista(nombre) {
+    if (nombre === 'ajustes') {
+      const actual = $$('.vista').find(v => v.classList.contains('vista--activa'));
+      if (actual && actual.id !== 'vista-ajustes') vistaPrevia = actual.id.replace('vista-', '');
+      pintarAjustes();
+    }
     $$('.vista').forEach(v => v.classList.toggle('vista--activa', v.id === 'vista-' + nombre));
     $$('.nav__boton').forEach(b =>
       b.classList.toggle('nav__boton--activo', b.dataset.vista === nombre));
+    $('#btnAjustes').classList.toggle('clip--activo', nombre === 'ajustes');
     window.scrollTo(0, 0);
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
      BÚSQUEDA
      ══════════════════════════════════════════════════════════════════════════ */
+  /* El grupo y el bloque se preguntan aparte porque también los necesita la
+     cuenta de terminadas, que no mira ni la búsqueda ni el check. */
+  function enElFiltroDeGrupo(fila) {
+    if (estado.grupo && grupoDeCasa(fila.casa) !== estado.grupo) return false;
+    if (estado.subgrupo && subgrupoDeCasa(fila.casa) !== estado.subgrupo) return false;
+    return true;
+  }
+
+  /* Lo escrito en el buscador se compara contra el número de casa y contra el
+     código, los dos normalizados. Así «1.02», «102» y «VB-1.02» encuentran la
+     misma casa, y un código escrito con guiones se encuentra sin ellos. */
+  function coincideConLaBusqueda(fila, q) {
+    if (fila.casaNorm.indexOf(q) !== -1) return true;
+    const codigo = codigoDe(fila.casaNorm);
+    return !!codigo && normalizarCasa(codigo).indexOf(q) !== -1;
+  }
+
   function filasQueCoinciden(consulta) {
     const q = normalizarCasa(consulta);
     return estado.filas.filter(fila => {
-      if (estado.grupo && grupoDeCasa(fila.casa) !== estado.grupo) return false;
-      if (estado.subgrupo && subgrupoDeCasa(fila.casa) !== estado.subgrupo) return false;
+      if (!enElFiltroDeGrupo(fila)) return false;
+      /* Las terminadas tienen su propia lista: o se ven solo ellas, o no se ven
+         ninguna. Nunca mezcladas con las que faltan, que es el punto. */
+      if (esTerminada(fila) !== estado.verTerminadas) return false;
       if (estado.registro) {
         const registrada = diasDeMarca(fila.casaNorm) !== null;
         if (estado.registro === 'si' && !registrada) return false;
         if (estado.registro === 'no' && registrada) return false;
       }
-      return !q || fila.casaNorm.indexOf(q) !== -1;
+      return !q || coincideConLaBusqueda(fila, q);
     });
+  }
+
+  /* Cuántas terminadas hay en el grupo y bloque que se estén viendo. */
+  function cuantasTerminadas() {
+    return estado.filas.filter(fila => enElFiltroDeGrupo(fila) && esTerminada(fila)).length;
   }
 
   /* Cómo se llama lo que se está viendo: «VB», «VB-5», o vacío si es todo. */
@@ -257,8 +473,12 @@
     const segun = (uno, varias) => n + (n === 1 ? uno : varias);
 
     if (consulta) return segun(' casa encontrada', ' casas encontradas') + enFiltro;
+    if (estado.verTerminadas) return segun(' casa terminada', ' casas terminadas') + enFiltro;
     if (estado.registro === 'si') return segun(' casa registrada', ' casas registradas') + enFiltro;
     if (estado.registro === 'no') return segun(' casa pendiente', ' casas pendientes') + enFiltro;
+    /* Con terminadas de por medio, «52 casas en el reporte» sería mentira: la
+       lista ya no las muestra. */
+    if (cuantasTerminadas()) return segun(' casa', ' casas') + enFiltro + ' sin terminar';
     return segun(' casa', ' casas') + (enFiltro || ' en el reporte');
   }
 
@@ -269,8 +489,10 @@
     const deFiltro = filtro ? ' de ' + filtro : '';
 
     if (consulta) return 'Ninguna casa coincide con «' + esc(consulta) + '»' + esc(enFiltro) + '.';
+    if (estado.verTerminadas) return 'Todavía no hay casas terminadas' + esc(enFiltro) + '.';
     if (estado.registro === 'no') return '¡Listo! Ya registraste todas las casas' + esc(deFiltro) + '.';
     if (estado.registro === 'si') return 'Todavía no registraste ninguna casa' + esc(deFiltro) + '.';
+    if (cuantasTerminadas()) return '¡Listo! Ya terminaste todas las casas' + esc(deFiltro) + '.';
     return 'No hay casas en ' + esc(filtro) + ' en este reporte.';
   }
 
@@ -278,6 +500,11 @@
      estaría viendo sin el filtro del check, para que los dos números sumen
      siempre el total del grupo o bloque en el que estés. */
   function pintarRegistro(consulta) {
+    /* En la lista de terminadas los dos botones no dirían nada: todas están
+       registradas, por definición. */
+    $('#registro').hidden = estado.verTerminadas;
+    if (estado.verTerminadas) return;
+
     const registroReal = estado.registro;
     estado.registro = '';
     const base = filasQueCoinciden(consulta);
@@ -295,12 +522,57 @@
     });
   }
 
+  /* La barra que abre y cierra la lista de terminadas. Solo se muestra si hay
+     alguna: mientras no haya, no tiene por qué ocupar lugar. */
+  function pintarTerminadas() {
+    const boton = $('#btnTerminadas');
+    const cuantas = cuantasTerminadas();
+
+    if (!cuantas) {
+      boton.hidden = true;
+      boton.innerHTML = '';
+      return;
+    }
+
+    boton.hidden = false;
+    boton.classList.toggle('terminadas--activo', estado.verTerminadas);
+    boton.setAttribute('aria-pressed', estado.verTerminadas);
+    boton.innerHTML = estado.verTerminadas
+      ? '&lsaquo; Volver a las que faltan'
+      : '&#10003; ' + cuantas + (cuantas === 1 ? ' terminada' : ' terminadas') +
+        '<span class="terminadas__flecha">&rsaquo;</span>';
+  }
+
+  /* La línea de abajo de cada casa: el código primero, porque es lo que se
+     busca, y después lo que traiga el reporte. */
+  function metaDeFila(fila) {
+    const partes = [];
+    const codigo = codigoDe(fila.casaNorm);
+    if (codigo) partes.push('<span class="resultado__codigo">' + esc(codigo) + '</span>');
+
+    const delReporte = [
+      fila.datos['Tipo'],
+      fila.datos['Sprint'] ? 'Sprint ' + fila.datos['Sprint'] : null
+    ].filter(Boolean).join(' · ');
+    if (delReporte) partes.push(esc(delReporte));
+
+    return partes.length ? '<span class="resultado__meta">' + partes.join(' · ') + '</span>' : '';
+  }
+
   function pintarResultados() {
     const consulta = $('#busqueda').value;
+
+    /* Esto va antes de armar la lista, y no después. Si al cambiar de grupo o
+       de bloque ya no queda ninguna terminada a la vista, hay que salir de esa
+       lista ahora mismo: calculándola primero se armaría con el modo viejo y
+       saldría vacía, sin nada que tocar para volver. */
+    if (estado.verTerminadas && !cuantasTerminadas()) estado.verTerminadas = false;
+
     const lista = filasQueCoinciden(consulta);
     const contenedor = $('#resultados');
 
     $('#btnLimpiar').hidden = !consulta;
+    pintarTerminadas();
     pintarRegistro(consulta);
 
     if (!estado.filas.length) {
@@ -322,8 +594,6 @@
 
     contenedor.innerHTML = lista.map(fila => {
       const activa = fila.casaNorm === estado.casaAbierta ? ' resultado--activo' : '';
-      const meta = [fila.datos['Tipo'], fila.datos['Sprint'] ? 'Sprint ' + fila.datos['Sprint'] : null]
-        .filter(Boolean).join(' · ');
       const pastilla = fila.porcentaje === null
         ? '<span class="pastilla pastilla--gris">sin %</span>'
         : '<span class="pastilla">' + fila.porcentaje + '%</span>';
@@ -332,8 +602,7 @@
         : '<span class="marca-punto" title="' + esc(textoDeMarca(dias)) + '" ' +
           'aria-label="' + esc(textoDeMarca(dias)) + '">&#10003;</span>';
       return '<li><button type="button" class="resultado' + activa + '" data-casa="' + esc(fila.casaNorm) + '">' +
-        '<span class="resultado__casa">' + esc(fila.casa) +
-        (meta ? '<span class="resultado__meta">' + esc(meta) + '</span>' : '') +
+        '<span class="resultado__casa">' + esc(fila.casa) + metaDeFila(fila) +
         '</span>' + marca + pastilla + '</button></li>';
     }).join('');
   }
@@ -351,9 +620,58 @@
   /* ── Ficha de una casa ──────────────────────────────────────────────────── */
   const CLAVES_CONTEXTO = ['Proyecto', 'Tipo', 'Sprint', 'Estado', 'Venta'];
 
+  /* El campo del código, al lado del número de casa. El ✓ sale solo cuando hay
+     algo escrito sin guardar; mientras tanto no estorba. */
+  function codigoHTML(casaNorm) {
+    return '<div class="codigo" id="codigo">' +
+      '<input type="text" class="codigo__campo" id="codigoCampo" ' +
+        'value="' + esc(codigoDe(casaNorm)) + '" ' +
+        /* data-casa a secas es el de los botones de la lista; este lleva otro
+           nombre para que no se confundan al buscarlos en la pantalla. */
+        'data-casa-codigo="' + esc(casaNorm) + '" ' +
+        'placeholder="Código" autocomplete="off" spellcheck="false" maxlength="40" ' +
+        'aria-label="Código de la casa ' + esc(casaNorm) + '">' +
+      '<button type="button" class="codigo__ok" id="btnCodigo" hidden ' +
+        'title="Guardar el código" aria-label="Guardar el código">&#10003;</button>' +
+      '</div>';
+  }
+
+  /* El aviso de las que ya salieron de la lista de trabajo, con la salida por
+     si se dio por terminada una que no era.
+
+     Cuando no corresponde deja un hueco escondido en vez de nada, igual que la
+     marca: así se puede cambiar en su lugar al copiar, sin repintar la ficha
+     entera y perder el «¡Copiado!» del botón. */
+  function terminadaHTML(fila) {
+    if (!esTerminada(fila)) return '<div id="terminadaAviso" hidden></div>';
+    const cuando = fechaLegible(estado.terminadas[fila.casaNorm]).split(' · ')[0];
+    return '<div class="terminada-aviso" id="terminadaAviso">' +
+      '<div class="terminada-aviso__texto"><strong>Terminada</strong>' +
+        (cuando ? ' el ' + esc(cuando) : '') +
+        '. Salió de la lista de casas por hacer.</div>' +
+      '<button type="button" class="boton boton--chico" data-devolver="' + esc(fila.casaNorm) + '">' +
+        'Devolver a la lista</button>' +
+      '</div>';
+  }
+
+  function refrescarTerminada(fila) {
+    const aviso = $('#terminadaAviso');
+    if (aviso) aviso.outerHTML = terminadaHTML(fila);
+  }
+
   function abrirCasa(casaNorm) {
     const fila = estado.filas.find(f => f.casaNorm === casaNorm);
     if (!fila) return;
+
+    /* Si se estaba escribiendo un código y se cambia de casa sin aceptarlo, se
+       pierde. Se avisa en vez de guardarlo por las dudas: lo que se guarda es
+       lo que se aceptó, y nada más. */
+    if (codigoPendiente && codigoPendiente.casaNorm !== casaNorm) {
+      const otra = estado.filas.find(f => f.casaNorm === codigoPendiente.casaNorm);
+      avisar('El código de ' + (otra ? otra.casa : codigoPendiente.casaNorm) +
+        ' quedó sin guardar.', true);
+    }
+    codigoPendiente = null;
     estado.casaAbierta = casaNorm;
 
     const etapa = etapaDesdePorcentaje(fila.porcentaje);
@@ -376,8 +694,12 @@
         '</div>';
 
     $('#detalle').innerHTML =
-      '<h2 class="ficha__casa">' + esc(fila.casa) + '</h2>' +
+      '<div class="ficha__encabezado">' +
+        '<h2 class="ficha__casa">' + esc(fila.casa) + '</h2>' +
+        codigoHTML(casaNorm) +
+      '</div>' +
       (contexto ? '<div class="ficha__contexto">' + contexto + '</div>' : '<div style="height:.75rem"></div>') +
+      terminadaHTML(fila) +
       bloqueAvance +
       '<div class="texto-generado">' +
         '<div class="texto-generado__encabezado">' +
@@ -405,8 +727,22 @@
         }, 1600);
         /* Sin return a propósito: la marca es un extra. Si fallara el guardado
            no tiene por qué salir un «no se pudo copiar», porque sí se copió. */
+        const yaEstabaTerminada = esTerminada(fila);
         marcarCasa(casaNorm)
-          .then(() => refrescarMarca(casaNorm))
+          .then(() => {
+            /* Registrar una casa que ya está en 100 % es lo que la da por
+               terminada. De ahí en adelante sale de la lista de trabajo. */
+            if (etapa !== ETAPA_FINALIZADA) return null;
+            return darPorTerminada(casaNorm);
+          })
+          .then(() => {
+            refrescarMarca(casaNorm);
+            if (etapa !== ETAPA_FINALIZADA) return;
+            refrescarTerminada(fila);
+            if (!yaEstabaTerminada) {
+              avisar(fila.casa + ' quedó terminada y sale de la lista.');
+            }
+          })
           .catch(() => { /* el copiado ya salió, que es lo que importa */ });
       }).catch(() => avisar('No se pudo copiar. Seleccioná el texto y usá Ctrl+C.', true));
     });
@@ -436,6 +772,96 @@
       '<div class="tabla-envoltura"><table class="tabla">' +
       '<thead><tr><th>Reporte</th><th class="num">%</th><th class="num">Etapa</th></tr></thead>' +
       '<tbody>' + filas + '</tbody></table></div>';
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     AJUSTES: LOS TEXTOS DEL REPORTE
+
+     Los textos de fábrica viven en textos.js y no se tocan nunca: son la red
+     debajo de todo. Lo que se escribe acá se guarda encima, y solo lo que de
+     verdad se haya cambiado.
+
+     Cada campo guarda por su cuenta, así un cambio a medias en una etapa no
+     arrastra a las otras nueve. Y un campo vacío no guarda vacío: borra la
+     modificación y vuelve el texto de fábrica, de modo que no hay forma de
+     quedarse sin texto por haber borrado de más.
+     ══════════════════════════════════════════════════════════════════════════ */
+  function textosGuardados() {
+    return estado.textos || { etapas: {}, medidor: '', fecha: null };
+  }
+
+  function textoDeFabrica(clave) {
+    return clave === 'medidor' ? TEXTO_MEDIDOR : textoPorDefectoDeEtapa(clave);
+  }
+
+  function textoEnUso(clave) {
+    return clave === 'medidor' ? textoDelMedidor() : textoDeEtapaElectrica(clave);
+  }
+
+  function tieneTextoPropio(clave) {
+    return textoEnUso(clave) !== textoDeFabrica(clave);
+  }
+
+  /* Guarda un texto, o lo quita si quedó vacío o igual al de fábrica: no tiene
+     sentido anotar una modificación que no modifica nada. Devuelve si terminó
+     volviendo al original, para poder decirlo en el aviso. */
+  function ponerTexto(clave, valor) {
+    const guardado = textosGuardados();
+    const propios = {
+      etapas: Object.assign({}, guardado.etapas),
+      medidor: guardado.medidor,
+      fecha: new Date().toISOString()
+    };
+
+    const limpio = String(valor || '').trim();
+    const volverAlOriginal = !limpio || limpio === textoDeFabrica(clave);
+
+    if (clave === 'medidor') propios.medidor = volverAlOriginal ? '' : limpio;
+    else if (volverAlOriginal) delete propios.etapas[clave];
+    else propios.etapas[clave] = limpio;
+
+    estado.textos = propios;
+    aplicarTextosPropios(propios);
+
+    return Almacen.guardarAjuste('textos', propios).then(() => {
+      Nube.subirAjuste('textos',
+        { etapas: propios.etapas, medidor: propios.medidor }, propios.fecha).catch(() => {});
+      return volverAlOriginal;
+    });
+  }
+
+  function campoDeTextoHTML(clave, titulo, corto) {
+    const propio = tieneTextoPropio(clave);
+    return '<div class="ajuste' + (propio ? ' ajuste--propio' : '') +
+      '" data-clave="' + esc(clave) + '">' +
+      '<div class="ajuste__titulo">' + esc(titulo) +
+        (corto ? '<span class="ajuste__corto">' + esc(corto) + '</span>' : '') +
+        (propio ? '<span class="ajuste__sello">Modificado</span>' : '') +
+      '</div>' +
+      '<textarea class="ajuste__campo" rows="3" spellcheck="false" ' +
+        'aria-label="' + esc(titulo) + '">' + esc(textoEnUso(clave)) + '</textarea>' +
+      '<div class="ajuste__acciones">' +
+        '<span class="ajuste__estado"></span>' +
+        (propio ? '<button type="button" class="boton boton--chico" data-restaurar="' +
+          esc(clave) + '">Restaurar</button>' : '') +
+        '<button type="button" class="boton boton--chico boton--principal" data-guardar="' +
+          esc(clave) + '" disabled>Guardar</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function pintarAjustes() {
+    /* El rótulo del tramo sale de los mismos números que usa el cálculo, así
+       que no puede quedar diciendo una cosa mientras la app hace otra. */
+    const etapas = ETAPAS_ELECTRICAS.map(e =>
+      campoDeTextoHTML(e.n, 'Etapa ' + e.n + ' · ' + tramoDeEtapa(e.n), e.corto)).join('');
+
+    $('#listaTextos').innerHTML = etapas +
+      '<h3 class="subtitulo" style="margin:1.5rem 0 .375rem">La línea del medidor</h3>' +
+      '<p class="ayuda">Se pega al final del texto cuando el reporte trae Obras ' +
+        'Complementarias en 100 %, menos en las casas con el eléctrico ya finalizado. ' +
+        'Empieza con coma porque continúa la oración de arriba.</p>' +
+      campoDeTextoHTML('medidor', 'Medidor provisional', '');
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -620,6 +1046,68 @@
     });
   }
 
+  /* Los códigos se juntan con la misma idea que las marcas, pero mirando la
+     fecha de cada uno: para cada casa queda el código escrito más tarde. */
+  function sincronizarCodigos() {
+    return Nube.leerCodigos().then(remotos => {
+      const unidos = Object.assign({}, remotos);
+      Object.keys(estado.codigos).forEach(casa => {
+        const local = estado.codigos[casa];
+        if (!local || !local.codigo) return;
+        const otro = unidos[casa];
+        if (!otro || new Date(local.fecha) > new Date(otro.fecha)) unidos[casa] = local;
+      });
+      estado.codigos = unidos;
+
+      return guardarCodigos().then(() => Nube.subirCodigos(estado.codigos));
+    });
+  }
+
+  /* Las terminadas también se juntan, y acá gana la fecha más vieja: la que
+     interesa es cuándo se dio por terminada la primera vez. */
+  function sincronizarTerminadas() {
+    return Nube.leerTerminadas().then(remotas => {
+      const unidas = Object.assign({}, remotas);
+      Object.keys(estado.terminadas).forEach(casa => {
+        const local = estado.terminadas[casa];
+        if (!unidas[casa] || new Date(local) < new Date(unidas[casa])) unidas[casa] = local;
+      });
+      estado.terminadas = unidas;
+
+      return guardarTerminadas().then(() => Nube.subirTerminadas(estado.terminadas));
+    });
+  }
+
+  /* Los textos no se juntan: gana el más nuevo, entero. Son textos que se
+     escriben de tanto en tanto y desde un solo lado, y mezclar la mitad de un
+     aparato con la mitad del otro dejaría un reporte que no escribió nadie. */
+  function sincronizarTextos() {
+    return Nube.leerAjuste('textos').then(remoto => {
+      const local = textosGuardados();
+      const fechaLocal = local.fecha ? new Date(local.fecha) : null;
+      const fechaRemota = remoto && remoto.fecha ? new Date(remoto.fecha) : null;
+
+      if (!fechaLocal && !fechaRemota) return null;
+
+      if (fechaRemota && (!fechaLocal || fechaRemota > fechaLocal)) {
+        const bajado = {
+          etapas: (remoto.valor && remoto.valor.etapas) || {},
+          medidor: (remoto.valor && remoto.valor.medidor) || '',
+          fecha: remoto.fecha
+        };
+        estado.textos = bajado;
+        aplicarTextosPropios(bajado);
+        return Almacen.guardarAjuste('textos', bajado);
+      }
+
+      if (!fechaRemota || fechaLocal > fechaRemota) {
+        return Nube.subirAjuste('textos',
+          { etapas: local.etapas, medidor: local.medidor }, local.fecha);
+      }
+      return null;
+    });
+  }
+
   function sincronizar(silencioso) {
     if (estado.nube.sincronizando) return Promise.resolve();
 
@@ -630,6 +1118,9 @@
     return ponerUidsQueFalten()
       .then(() => sincronizarReportes())
       .then(() => sincronizarMarcas())
+      .then(() => sincronizarCodigos())
+      .then(() => sincronizarTerminadas())
+      .then(() => sincronizarTextos())
       .then(() => recargarTodo())
       .then(() => {
         estado.nube.ultima = new Date().toISOString();
@@ -639,8 +1130,13 @@
       .catch(error => {
         estado.nube.sincronizando = false;
         estado.nube.error = error.message;
-        pintarNube();
-        if (!silencioso) avisar(error.message, true);
+        /* Aunque algo haya fallado a mitad de camino, lo que sí se alcanzó a
+           bajar ya quedó guardado. Se muestra igual, en vez de hacer esperar
+           hasta la próxima vez que se abra la app. */
+        return recargarTodo().catch(() => {}).then(() => {
+          pintarNube();
+          if (!silencioso) avisar(error.message, true);
+        });
       });
   }
 
@@ -668,10 +1164,21 @@
     return Promise.all([
       Almacen.listarReportes(),
       Almacen.leerAjuste('reporteActivo', null),
-      Almacen.leerAjuste('marcas', {})
-    ]).then(([reportes, idActivo, marcas]) => {
+      Almacen.leerAjuste('marcas', {}),
+      Almacen.leerAjuste('codigos', {}),
+      Almacen.leerAjuste('terminadas', {}),
+      Almacen.leerAjuste('textos', null)
+    ]).then(([reportes, idActivo, marcas, codigos, terminadas, textos]) => {
       estado.reportes = reportes;
       estado.marcas = marcas && typeof marcas === 'object' ? marcas : {};
+      estado.codigos = codigos && typeof codigos === 'object' ? codigos : {};
+      estado.terminadas = terminadas && typeof terminadas === 'object' ? terminadas : {};
+
+      /* Los textos propios se aplican antes de pintar nada: si no, la primera
+         pantalla saldría con los de fábrica y cambiaría sola un instante
+         después. */
+      estado.textos = textos && typeof textos === 'object' ? textos : null;
+      aplicarTextosPropios(estado.textos);
 
       const activo = reportes.find(r => r.id === Number(idActivo)) || reportes[0] || null;
       estado.reporteActivo = activo;
@@ -684,7 +1191,7 @@
         estado.filas = activo ? (activo._filasCache || []) : [];
         estado.filas.sort((a, b) => a.casa.localeCompare(b.casa, 'es'));
       });
-    }).then(() => limpiarMarcasVencidas()).then(() => {
+    }).then(() => limpiarMarcasVencidas()).then(() => ponerAlDiaTerminadas()).then(() => {
       $('#barraSub').textContent = estado.reporteActivo
         ? estado.reporteActivo.nombre + ' · ' + estado.filas.length + ' casas'
         : 'Sin reportes';
@@ -710,6 +1217,10 @@
   function conectarEventos() {
     $$('.nav__boton').forEach(boton =>
       boton.addEventListener('click', () => mostrarVista(boton.dataset.vista)));
+
+    /* La tuerca abre Ajustes; «Volver» devuelve a donde se estaba. */
+    $('#btnAjustes').addEventListener('click', () => mostrarVista('ajustes'));
+    $('#btnVolver').addEventListener('click', () => mostrarVista(vistaPrevia));
 
     $('#btnImportar').addEventListener('click', () => $('#archivo').click());
     $('#btnImportarVacio').addEventListener('click', () => $('#archivo').click());
@@ -755,15 +1266,54 @@
       pintarResultados();
     });
 
-    /* Quitar la marca de una casa desde el banner de la ficha. Va delegado
-       porque el banner se cambia de lugar cada vez que se copia. */
+    /* La barra de terminadas: pasa de la lista de trabajo a la de terminadas y
+       al revés. Al entrar se apaga el filtro del check, que ahí no aplica. */
+    $('#btnTerminadas').addEventListener('click', () => {
+      estado.verTerminadas = !estado.verTerminadas;
+      if (estado.verTerminadas) estado.registro = '';
+      pintarResultados();
+    });
+
+    /* Todo lo de la ficha va delegado, porque el panel se rehace entero cada
+       vez que se abre una casa. */
     $('#detalle').addEventListener('click', evento => {
-      const boton = evento.target.closest('[data-quitar-marca]');
-      if (!boton) return;
-      const casaNorm = boton.dataset.quitarMarca;
-      quitarMarca(casaNorm)
-        .then(() => refrescarMarca(casaNorm))
-        .catch(() => avisar('No se pudo quitar la marca.', true));
+      const quitar = evento.target.closest('[data-quitar-marca]');
+      if (quitar) {
+        const casaNorm = quitar.dataset.quitarMarca;
+        quitarMarca(casaNorm)
+          .then(() => refrescarMarca(casaNorm))
+          .catch(() => avisar('No se pudo quitar la marca.', true));
+        return;
+      }
+
+      if (evento.target.closest('#btnCodigo')) {
+        aceptarCodigo();
+        return;
+      }
+
+      const devolver = evento.target.closest('[data-devolver]');
+      if (devolver) {
+        const casaNorm = devolver.dataset.devolver;
+        const fila = estado.filas.find(f => f.casaNorm === casaNorm);
+        devolverTerminada(casaNorm).then(() => {
+          if (fila) refrescarTerminada(fila);
+          /* Refresca también el banner de la marca, que se fue con ella. */
+          refrescarMarca(casaNorm);
+          avisar('Volvió a la lista, y se le quitó el check');
+        }).catch(() => avisar('No se pudo devolver la casa.', true));
+      }
+    });
+
+    /* El campo del código. Enter acepta, Escape descarta; escribir no guarda,
+       solo enciende el ✓ y pinta el campo de ámbar. */
+    $('#detalle').addEventListener('input', evento => {
+      if (evento.target.id === 'codigoCampo') refrescarEstadoDelCodigo();
+    });
+
+    $('#detalle').addEventListener('keydown', evento => {
+      if (evento.target.id !== 'codigoCampo') return;
+      if (evento.key === 'Enter') { evento.preventDefault(); aceptarCodigo(); }
+      if (evento.key === 'Escape') { evento.preventDefault(); descartarCodigo(); }
     });
 
     $('#resultados').addEventListener('click', evento => {
@@ -797,6 +1347,55 @@
           .then(() => recargarTodo())
           .then(() => avisar('Reporte borrado'));
       }
+    });
+
+    /* ── Los textos, en Ajustes ───────────────────────────────────────────
+       Escribir no guarda: solo enciende el botón y avisa que quedó sin
+       guardar. Lo que se guarda es lo que se acepta. */
+    $('#listaTextos').addEventListener('input', evento => {
+      const campo = evento.target.closest('.ajuste__campo');
+      if (!campo) return;
+      const caja = campo.closest('.ajuste');
+      const cambiado = campo.value.trim() !== textoEnUso(caja.dataset.clave).trim();
+
+      caja.querySelector('[data-guardar]').disabled = !cambiado;
+      const aviso = caja.querySelector('.ajuste__estado');
+      aviso.textContent = cambiado ? 'Sin guardar' : '';
+      aviso.classList.toggle('ajuste__estado--pendiente', cambiado);
+    });
+
+    $('#listaTextos').addEventListener('click', evento => {
+      const guardar = evento.target.closest('[data-guardar]');
+      const restaurar = evento.target.closest('[data-restaurar]');
+      if (!guardar && !restaurar) return;
+
+      const caja = evento.target.closest('.ajuste');
+      const clave = caja.dataset.clave;
+      /* Restaurar es guardar vacío: la misma puerta para las dos cosas, así no
+         hay dos formas distintas de dejar el texto en su original. */
+      const valor = guardar ? caja.querySelector('.ajuste__campo').value : '';
+
+      ponerTexto(clave, valor).then(volvioAlOriginal => {
+        pintarAjustes();
+        refrescarVistaBuscar();
+        avisar(volvioAlOriginal ? 'Volvió el texto original' : 'Texto guardado');
+      }).catch(() => avisar('No se pudo guardar el texto.', true));
+    });
+
+    $('#btnRestaurarTodo').addEventListener('click', () => {
+      if (!confirm('¿Volver todos los textos a los originales?\n\n' +
+        'Se pierden los cambios que hayas hecho, en este aparato y en los demás.')) return;
+
+      const limpio = { etapas: {}, medidor: '', fecha: new Date().toISOString() };
+      estado.textos = limpio;
+      aplicarTextosPropios(limpio);
+
+      Almacen.guardarAjuste('textos', limpio).then(() => {
+        Nube.subirAjuste('textos', { etapas: {}, medidor: '' }, limpio.fecha).catch(() => {});
+        pintarAjustes();
+        refrescarVistaBuscar();
+        avisar('Volvieron todos los textos originales');
+      }).catch(() => avisar('No se pudieron restaurar los textos.', true));
     });
 
     /* ── La nube ──────────────────────────────────────────────────────────

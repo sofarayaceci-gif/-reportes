@@ -58,6 +58,54 @@ const TEXTO_MEDIDOR =
 /* Etapa en la que la obra eléctrica ya está terminada. */
 const ETAPA_FINALIZADA = 9;
 
+/* ── Textos cambiados desde la app ─────────────────────────────────────────
+   Las dos listas de arriba son los textos de fábrica y no se tocan nunca: son
+   la red debajo de todo. Lo que se escribe en la pantalla de Ajustes se guarda
+   acá encima, y solo lo que se haya cambiado de verdad.
+
+   Un texto vacío no se guarda: se borra la modificación y vuelve el de fábrica.
+   Así no hay forma de quedarse sin texto por haber borrado un campo.
+
+   Quien llena esto es app.js al arrancar, con lo que tenga guardado el aparato
+   (y con lo que baje de la nube, si hay algo más nuevo). */
+const TEXTOS_PROPIOS = { etapas: {}, medidor: '' };
+
+function aplicarTextosPropios(guardado) {
+  TEXTOS_PROPIOS.etapas = {};
+  TEXTOS_PROPIOS.medidor = '';
+  if (!guardado || typeof guardado !== 'object') return;
+
+  const etapas = guardado.etapas || {};
+  Object.keys(etapas).forEach(clave => {
+    const texto = String(etapas[clave] === null || etapas[clave] === undefined ? '' : etapas[clave]).trim();
+    if (texto) TEXTOS_PROPIOS.etapas[Number(clave)] = texto;
+  });
+
+  const medidor = String(guardado.medidor === null || guardado.medidor === undefined ? '' : guardado.medidor).trim();
+  if (medidor) TEXTOS_PROPIOS.medidor = medidor;
+}
+
+/* El texto de fábrica de una etapa, el que devuelve el botón «Restaurar». */
+function textoPorDefectoDeEtapa(etapa) {
+  const e = ETAPAS_ELECTRICAS.find(x => x.n === Number(etapa));
+  return e ? e.texto : '';
+}
+
+/* El texto del medidor que está en uso: el propio si lo hay, si no el de fábrica. */
+function textoDelMedidor() {
+  return TEXTOS_PROPIOS.medidor || TEXTO_MEDIDOR;
+}
+
+/* El tramo de porcentajes de una etapa, para rotular los campos de Ajustes.
+   Sale de LIMITES_DE_ETAPAS, así que si algún día se mueve un tramo el rótulo
+   se mueve solo y no puede quedar mintiendo. */
+function tramoDeEtapa(etapa) {
+  const n = Number(etapa);
+  if (n === 0) return '0 %';
+  if (n === ETAPA_FINALIZADA) return '100 %';
+  return LIMITES_DE_ETAPAS[n - 1] + ' – ' + (LIMITES_DE_ETAPAS[n] - 1) + ' %';
+}
+
 /* ¿El reporte dice que esta casa ya tiene medidor provisional? */
 function tieneMedidorProvisional(pctComplementarias) {
   const p = pctComplementarias;
@@ -109,9 +157,11 @@ function etapaDesdePorcentaje(pct) {
 }
 
 /* ── Generación del texto ────────────────────────────────────────────────── */
+
+/* El texto que sale de verdad: el que se haya escrito en Ajustes, y si no hay,
+   el de fábrica. Todo lo que muestra o copia la app pasa por acá. */
 function textoDeEtapaElectrica(etapa) {
-  const e = ETAPAS_ELECTRICAS.find(x => x.n === Number(etapa));
-  return e ? e.texto : '';
+  return TEXTOS_PROPIOS.etapas[Number(etapa)] || textoPorDefectoDeEtapa(etapa);
 }
 
 /* El texto completo del reporte para una casa.
@@ -121,7 +171,7 @@ function generarTexto(etapaElectrica, pctComplementarias) {
   const base = textoDeEtapaElectrica(etapaElectrica);
   if (!base) return '';
   return llevaLineaDeMedidor(etapaElectrica, pctComplementarias)
-    ? base + TEXTO_MEDIDOR
+    ? base + textoDelMedidor()
     : base;
 }
 
