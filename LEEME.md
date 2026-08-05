@@ -121,6 +121,9 @@ tocar el `.bat`.
 
    - Si te equivocaste, abrí la casa y **quitá el check**: vuelve a la lista al
      toque. No pierde la marca de registrada, que es otra cosa.
+   - Para quitarlos **todos de golpe**, en la tuerca ⚙ hay un botón *Abrir todas
+     las bitácoras*, abajo del todo. Sirve para empezar un ciclo nuevo. Tampoco
+     toca las marcas de registrada.
    - Si un reporte nuevo la trae **por debajo del 100 %** (una corrección en el
      Excel), vuelve sola a la lista sin que toqués nada, con el check puesto y
      una nota que lo explica. Si más adelante vuelve al 100 %, vuelve a estar
@@ -154,11 +157,15 @@ El % de avance eléctrico del reporte decide la etapa, y cada etapa tiene su tex
 | 26–37 | 3 | | 88–99 | 8 |
 | 38–50 | 4 | | 100 | 9 |
 
-## Cambiar los textos (la tuerca ⚙)
+## La tuerca ⚙
 
-El botón de **tuerca**, al lado del clip, abre una pantalla con **los diez textos
-de etapa y la línea del medidor**, cada uno rotulado con su tramo de porcentajes
-para que sepas cuál estás tocando.
+El botón de **tuerca**, al lado del clip, abre la única pantalla de ajustes que
+tiene la app. Hay dos cosas: los textos y las bitácoras.
+
+### Los textos
+
+**Los diez textos de etapa y la línea del medidor**, cada uno rotulado con su
+tramo de porcentajes para que sepas cuál estás tocando.
 
 Se guarda **cuando tocás Guardar**. Escribir no guarda nada. Y los cambios **se
 sincronizan**: los hacés una vez y quedan iguales en la compu y en el celular.
@@ -176,6 +183,19 @@ guarda encima. Por eso *Restaurar* siempre tiene a qué volver.
 > Los **tramos de porcentaje** (que la etapa 6 vaya de 63 a 75, por ejemplo) **no**
 > se cambian desde la app, a propósito: los textos se cambian por redacción y eso
 > pasa seguido, pero mover un tramo mal reacomoda todas las casas de golpe.
+
+### Las bitácoras
+
+Abajo del todo, **Abrir todas las bitácoras** quita de un solo golpe todos los
+checks de *Bitácora cerrada*. Las casas vuelven a la lista de trabajo con el
+check en blanco, para marcarlas una por una.
+
+**No toca las marcas de registrada**: son dos cosas distintas. Una casa puede
+estar registrada esta semana y con la bitácora todavía abierta.
+
+Se borran también en la nube, así que no vuelven solas al abrir la app en otro
+aparato. Si estás sin señal te avisa en rojo y hay que volver a tocarlo con
+conexión, porque si no vuelven.
 
 ### Lo que todavía se cambia en los archivos
 
