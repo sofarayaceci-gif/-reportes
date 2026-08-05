@@ -447,8 +447,8 @@ body {
 }
 .codigo__ok:hover { background: #9dbe0e; border-color: #9dbe0e; }
 
-/* El de copiar va en contorno y no relleno: así el ✓ verde sigue siendo el
-   único botón que pesa, que es el que guarda. */
+/* Verde suave y no blanco: en blanco sobre blanco casi no se veía y había que
+   saber que estaba ahí. Relleno se queda el ✓, que es el que pesa. */
 .codigo__copiar {
   flex: none;
   display: grid;
@@ -456,18 +456,17 @@ body {
   width: 2rem;
   height: 2rem;
   padding: 0;
-  border: 1px solid var(--borde);
+  border: 1px solid var(--verde-borde);
   border-radius: 50%;
-  background: var(--fondo);
-  color: var(--tinta-suave);
+  background: var(--verde-suave);
+  color: var(--verde-oscuro);
   cursor: pointer;
   transition: border-color .15s, background .15s, color .15s;
 }
-.codigo__copiar svg { width: 1rem; height: 1rem; }
+.codigo__copiar svg { width: 1.0625rem; height: 1.0625rem; }
 .codigo__copiar:hover {
   border-color: var(--verde);
-  background: var(--verde-suave);
-  color: var(--verde-oscuro);
+  background: #eaf2cd;
 }
 .codigo__copiar--copiado {
   border-color: var(--verde);
