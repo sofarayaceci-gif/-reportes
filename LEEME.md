@@ -4,7 +4,7 @@ App para consultar el avance eléctrico por casa y copiar el texto del reporte.
 
 ## Instalarla (se hace una sola vez)
 
-1. Doble clic en **`Abrir Reportes.bat`**. Se abre Chrome en `http://localhost:8123`
+1. Doble clic en **`Abrir Reportes.bat`**. Se abre Chrome en `http://localhost:8124`
    y queda una ventana minimizada haciendo de servidor.
 2. En Chrome: el **ícono de instalar** de la barra de direcciones, o menú de tres
    puntos → **Instalar Reportes**.
@@ -61,6 +61,11 @@ tocar el `.bat`.
      bloquea: lo guarda igual y vos decidís. El aviso salta aunque lo hayas
      escrito distinto (`ABC-1` y `abc1` cuentan como el mismo).
 
+   Al lado del campo hay un **botón para copiarlo**, que sale cuando hay un
+   código guardado. Los dos botones se turnan: mientras estés escribiendo algo
+   sin aceptar, en su lugar está el ✓, para que no copies el código viejo
+   creyendo que copiaste el nuevo.
+
    El código sale en la lista, en verde debajo del número. **No entra en el
    texto que se copia**: es una guía para reconocer y encontrar la casa.
 
@@ -99,28 +104,27 @@ tocar el `.bat`.
    > Ojo: como la marca dura 7 días, *Pendientes* quiere decir «no la copié en
    > la última semana», no «no la copié nunca». Para el ritmo semanal calza, pero
    > si te atrasás, las de hace más de 7 días vuelven a salir como pendientes.
-7. **Las terminadas**: cuando copiás una casa que está en **100 % de eléctrico**,
-   queda dada por terminada y **sale de la lista de trabajo**. La lista te queda
-   solo con lo que falta, que es la gracia.
+7. **Las terminadas**: en las casas que el reporte trae en **100 % de eléctrico**
+   sale, dentro de la ficha, un check que dice **Bitácora cerrada**. Marcalo y la
+   casa **sale de la lista de trabajo**. La lista te queda solo con lo que falta,
+   que es la gracia.
+
+   **El check lo ponés vos.** Llegar al 100 % en el Excel no la termina, y
+   copiar el texto tampoco: la app no tiene cómo saber si ya cerraste la
+   bitácora, así que no lo decide sola.
 
    Arriba de la lista aparece una tira que dice **✓ 18 terminadas**. Tocala y se
    ven solo ellas; tocá *Volver a las que faltan* y regresás.
 
-   **Esto no se vence**, a diferencia de la marca de 7 días. Una casa terminada
+   **Esto no se vence**, a diferencia de la marca de 7 días. Una bitácora cerrada
    lo está para siempre.
 
-   > **Las que ya tenías registradas cuentan.** No hace falta volver a copiarlas:
-   > al abrir la app, toda casa en 100 % que tenga el check pasa sola a
-   > terminadas. La lista sirve desde el primer día.
-
-   - Si te equivocaste, abrí la casa y tocá **Devolver a la lista**. Le quita
-     también el check, porque devolverla es decir «esta no la reporté»; si el
-     check quedara, la casa se volvería a ir sola a terminadas.
+   - Si te equivocaste, abrí la casa y **quitá el check**: vuelve a la lista al
+     toque. No pierde la marca de registrada, que es otra cosa.
    - Si un reporte nuevo la trae **por debajo del 100 %** (una corrección en el
-     Excel), vuelve sola a la lista sin que toqués nada. Y si más adelante
-     vuelve al 100 %, vuelve a estar terminada.
-   - Hacen falta **las dos cosas**: 100 % y registrada. Una casa en 100 % que
-     todavía no copiaste sigue en la lista, que es justo donde la querés.
+     Excel), vuelve sola a la lista sin que toqués nada, con el check puesto y
+     una nota que lo explica. Si más adelante vuelve al 100 %, vuelve a estar
+     terminada.
 
    > Esta pantalla necesita una tabla nueva en Supabase. Mientras no se corra el
    > SQL, las terminadas funcionan en el aparato pero no se sincronizan, y en
@@ -204,7 +208,7 @@ detrás. Va y viene todo lo que no se puede sacar del Excel:
 | Los reportes importados | con sus casas |
 | Las marcas de «añadido» | las de 7 días |
 | **Los códigos** de cada casa | |
-| **Las casas terminadas** | |
+| **Los checks** de bitácora cerrada | las casas terminadas |
 | **Los textos** que hayas cambiado con la tuerca | |
 
 En la pestaña **Historial**, arriba, se ve cómo fue la última vez, y si algo falló
