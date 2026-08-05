@@ -224,6 +224,9 @@
     codigoPendiente = hayCambio ? { casaNorm: casaNorm, valor: campo.value } : null;
     caja.classList.toggle('codigo--pendiente', hayCambio);
     $('#btnCodigo').hidden = !hayCambio;
+    /* Copiar y guardar no salen juntos: mientras haya algo sin aceptar, el
+       botón de copiar mandaría el código viejo y no el que está a la vista. */
+    $('#btnCopiarCodigo').hidden = hayCambio || !codigoDe(casaNorm);
   }
 
   /* Avisa —sin bloquear— si el código ya está puesto en otra casa. Se supone
@@ -256,22 +259,26 @@
   /* ══════════════════════════════════════════════════════════════════════════
      CASAS TERMINADAS
 
-     Una casa queda terminada cuando llega al 100 % de eléctrico y además se
-     registra, o sea se copia su texto. Desde ese momento sale de la lista de
-     trabajo y pasa a la suya, que se abre con la barra de arriba de la lista.
+     Llegar al 100 % de eléctrico no termina una casa: lo que la termina es
+     cerrarle la bitácora, y eso se marca a mano con el check de la ficha. La
+     app no lo decide sola, porque el 100 % del Excel y la bitácora cerrada son
+     dos cosas distintas y solo una de las dos se ve desde acá.
+
+     Con el check puesto la casa sale de la lista de trabajo y pasa a la suya,
+     que se abre con la barra de arriba de la lista. Quitando el check vuelve.
 
      Esto NO se vence, a diferencia de la marca de «añadido». La marca sirve
-     para saber qué se metió al informe esta semana; una casa terminada lo está
-     para siempre.
+     para saber qué se metió al informe esta semana; una bitácora cerrada lo
+     está para siempre.
      ══════════════════════════════════════════════════════════════════════════ */
 
-  /* Hacen falta las dos cosas: que esté anotada como terminada, y que el
-     reporte que se está viendo la traiga en 100 %.
+  /* Hacen falta las dos cosas: que tenga la bitácora cerrada, y que el reporte
+     que se está viendo la traiga en 100 %.
 
      Lo segundo es lo que la hace volver sola. Si un reporte nuevo la baja del
      100 % —una corrección en el Excel— reaparece en la lista de trabajo sin
      que haya que tocar nada, y si más adelante vuelve al 100 %, vuelve a estar
-     terminada. La anotación no se borra por eso: solo deja de aplicar. */
+     terminada. El check no se borra por eso: solo deja de aplicar. */
   function esTerminada(fila) {
     if (!estado.terminadas[fila.casaNorm]) return false;
     return etapaDesdePorcentaje(fila.porcentaje) === ETAPA_FINALIZADA;
@@ -291,42 +298,14 @@
     });
   }
 
+  /* Abrir la bitácora otra vez. La marca de registrada no se toca: son dos
+     cosas distintas, y que la casa vuelva a la lista no borra que su texto ya
+     se copió esta semana. */
   function devolverTerminada(casaNorm) {
+    if (!estado.terminadas[casaNorm]) return Promise.resolve();
     delete estado.terminadas[casaNorm];
-    /* Se le quita también la marca de registrada. Tiene que ser así: devolver
-       una casa a la lista es decir «esta no la reporté», y si la marca quedara,
-       ponerAlDiaTerminadas la volvería a sacar en el próximo repaso y el botón
-       no serviría de nada. */
-    delete estado.marcas[casaNorm];
-    return Promise.all([guardarTerminadas(), guardarMarcas()]).then(() => {
-      Nube.borrarTerminada(casaNorm).catch(() => {});
-      Nube.borrarMarca(casaNorm).catch(() => {});
-    });
-  }
-
-  /* Anota como terminadas las casas que están en 100 % y ya tienen la marca de
-     registrada, pero que todavía no figuran acá.
-
-     Esto es lo que hace que la lista sirva desde el primer día: las casas que
-     ya se registraron esta semana entran solas, sin tener que volver a
-     copiarlas una por una. Y no es una migración de una sola vez: la regla
-     sigue valiendo siempre, que es más simple que llevar la cuenta de si ya
-     corrió. Lo que la mantiene coherente es que «Devolver a la lista» quita
-     también la marca. */
-  function ponerAlDiaTerminadas() {
-    const nuevas = {};
-    estado.filas.forEach(fila => {
-      if (estado.terminadas[fila.casaNorm]) return;
-      if (etapaDesdePorcentaje(fila.porcentaje) !== ETAPA_FINALIZADA) return;
-      if (diasDeMarca(fila.casaNorm) === null) return;
-      /* Con la fecha de la marca y no la de ahora: esa es la de verdad. */
-      nuevas[fila.casaNorm] = estado.marcas[fila.casaNorm];
-    });
-    if (!Object.keys(nuevas).length) return Promise.resolve();
-
-    Object.assign(estado.terminadas, nuevas);
     return guardarTerminadas().then(() => {
-      Nube.subirTerminadas(nuevas).catch(() => {});
+      Nube.borrarTerminada(casaNorm).catch(() => {});
     });
   }
 
@@ -620,43 +599,68 @@
   /* ── Ficha de una casa ──────────────────────────────────────────────────── */
   const CLAVES_CONTEXTO = ['Proyecto', 'Tipo', 'Sprint', 'Estado', 'Venta'];
 
-  /* El campo del código, al lado del número de casa. El ✓ sale solo cuando hay
-     algo escrito sin guardar; mientras tanto no estorba. */
+  /* El campo del código, al lado del número de casa. Los dos botones se turnan:
+     el ✓ sale solo cuando hay algo escrito sin guardar, y el de copiar solo
+     cuando hay un código guardado. Mientras tanto no estorban. */
   function codigoHTML(casaNorm) {
+    const guardado = codigoDe(casaNorm);
     return '<div class="codigo" id="codigo">' +
       '<input type="text" class="codigo__campo" id="codigoCampo" ' +
-        'value="' + esc(codigoDe(casaNorm)) + '" ' +
+        'value="' + esc(guardado) + '" ' +
         /* data-casa a secas es el de los botones de la lista; este lleva otro
            nombre para que no se confundan al buscarlos en la pantalla. */
         'data-casa-codigo="' + esc(casaNorm) + '" ' +
         'placeholder="Código" autocomplete="off" spellcheck="false" maxlength="40" ' +
         'aria-label="Código de la casa ' + esc(casaNorm) + '">' +
+      '<button type="button" class="codigo__copiar" id="btnCopiarCodigo" ' +
+        'data-copiar-codigo="' + esc(casaNorm) + '"' + (guardado ? '' : ' hidden') + ' ' +
+        'title="Copiar el código" aria-label="Copiar el código">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" ' +
+          'stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
+          '<rect x="9" y="9" width="11" height="11" rx="2"/>' +
+          '<path d="M5 15V5a2 2 0 0 1 2-2h8"/>' +
+        '</svg></button>' +
       '<button type="button" class="codigo__ok" id="btnCodigo" hidden ' +
         'title="Guardar el código" aria-label="Guardar el código">&#10003;</button>' +
       '</div>';
   }
 
-  /* El aviso de las que ya salieron de la lista de trabajo, con la salida por
-     si se dio por terminada una que no era.
+  /* El check de la bitácora. Sale en las casas que el reporte trae en 100 %, y
+     también en las que ya tienen el check aunque hayan bajado del 100 %: si no,
+     no habría dónde quitárselo.
 
      Cuando no corresponde deja un hueco escondido en vez de nada, igual que la
-     marca: así se puede cambiar en su lugar al copiar, sin repintar la ficha
-     entera y perder el «¡Copiado!» del botón. */
-  function terminadaHTML(fila) {
-    if (!esTerminada(fila)) return '<div id="terminadaAviso" hidden></div>';
-    const cuando = fechaLegible(estado.terminadas[fila.casaNorm]).split(' · ')[0];
-    return '<div class="terminada-aviso" id="terminadaAviso">' +
-      '<div class="terminada-aviso__texto"><strong>Terminada</strong>' +
-        (cuando ? ' el ' + esc(cuando) : '') +
-        '. Salió de la lista de casas por hacer.</div>' +
-      '<button type="button" class="boton boton--chico" data-devolver="' + esc(fila.casaNorm) + '">' +
-        'Devolver a la lista</button>' +
-      '</div>';
+     marca: así se puede cambiar en su lugar sin repintar la ficha entera y
+     perder el «¡Copiado!» del botón. */
+  function bitacoraHTML(fila) {
+    const cerrada = !!estado.terminadas[fila.casaNorm];
+    const enCien = etapaDesdePorcentaje(fila.porcentaje) === ETAPA_FINALIZADA;
+    if (!cerrada && !enCien) return '<div id="bitacora" hidden></div>';
+
+    const cuando = cerrada
+      ? fechaLegible(estado.terminadas[fila.casaNorm]).split(' · ')[0] : '';
+    /* Cerrada pero por debajo del 100 % es el caso raro: un reporte nuevo la
+       corrigió para abajo. Vale la pena decirlo, porque explica por qué sigue
+       apareciendo en la lista con el check puesto. */
+    const nota = !cerrada
+      ? 'Marcala cuando la cierres. Ahí la casa pasa a las terminadas.'
+      : enCien
+        ? (cuando ? 'Cerrada el ' + cuando + '. ' : '') + 'Salió de la lista de casas por hacer.'
+        : (cuando ? 'Cerrada el ' + cuando + ', ' : '') + 'pero el reporte la trae en ' +
+          (fila.porcentaje === null ? 'sin %' : fila.porcentaje + ' %') +
+          ', así que sigue en la lista.';
+
+    return '<label class="bitacora' + (cerrada ? ' bitacora--cerrada' : '') + '" id="bitacora">' +
+      '<input type="checkbox" class="bitacora__check" ' +
+        'data-bitacora="' + esc(fila.casaNorm) + '"' + (cerrada ? ' checked' : '') + '>' +
+      '<span class="bitacora__texto"><strong>Bitácora cerrada</strong>' +
+        '<span class="bitacora__nota">' + esc(nota) + '</span></span>' +
+      '</label>';
   }
 
-  function refrescarTerminada(fila) {
-    const aviso = $('#terminadaAviso');
-    if (aviso) aviso.outerHTML = terminadaHTML(fila);
+  function refrescarBitacora(fila) {
+    const caja = $('#bitacora');
+    if (caja) caja.outerHTML = bitacoraHTML(fila);
   }
 
   function abrirCasa(casaNorm) {
@@ -699,7 +703,7 @@
         codigoHTML(casaNorm) +
       '</div>' +
       (contexto ? '<div class="ficha__contexto">' + contexto + '</div>' : '<div style="height:.75rem"></div>') +
-      terminadaHTML(fila) +
+      bitacoraHTML(fila) +
       bloqueAvance +
       '<div class="texto-generado">' +
         '<div class="texto-generado__encabezado">' +
@@ -726,23 +730,12 @@
           boton.classList.remove('boton--copiado');
         }, 1600);
         /* Sin return a propósito: la marca es un extra. Si fallara el guardado
-           no tiene por qué salir un «no se pudo copiar», porque sí se copió. */
-        const yaEstabaTerminada = esTerminada(fila);
+           no tiene por qué salir un «no se pudo copiar», porque sí se copió.
+
+           Copiar deja la casa registrada y nada más. Aunque venga en 100 %, la
+           que la manda a terminadas es la bitácora, con su check. */
         marcarCasa(casaNorm)
-          .then(() => {
-            /* Registrar una casa que ya está en 100 % es lo que la da por
-               terminada. De ahí en adelante sale de la lista de trabajo. */
-            if (etapa !== ETAPA_FINALIZADA) return null;
-            return darPorTerminada(casaNorm);
-          })
-          .then(() => {
-            refrescarMarca(casaNorm);
-            if (etapa !== ETAPA_FINALIZADA) return;
-            refrescarTerminada(fila);
-            if (!yaEstabaTerminada) {
-              avisar(fila.casa + ' quedó terminada y sale de la lista.');
-            }
-          })
+          .then(() => refrescarMarca(casaNorm))
           .catch(() => { /* el copiado ya salió, que es lo que importa */ });
       }).catch(() => avisar('No se pudo copiar. Seleccioná el texto y usá Ctrl+C.', true));
     });
@@ -1191,7 +1184,7 @@
         estado.filas = activo ? (activo._filasCache || []) : [];
         estado.filas.sort((a, b) => a.casa.localeCompare(b.casa, 'es'));
       });
-    }).then(() => limpiarMarcasVencidas()).then(() => ponerAlDiaTerminadas()).then(() => {
+    }).then(() => limpiarMarcasVencidas()).then(() => {
       $('#barraSub').textContent = estado.reporteActivo
         ? estado.reporteActivo.nombre + ' · ' + estado.filas.length + ' casas'
         : 'Sin reportes';
@@ -1291,17 +1284,41 @@
         return;
       }
 
-      const devolver = evento.target.closest('[data-devolver]');
-      if (devolver) {
-        const casaNorm = devolver.dataset.devolver;
-        const fila = estado.filas.find(f => f.casaNorm === casaNorm);
-        devolverTerminada(casaNorm).then(() => {
-          if (fila) refrescarTerminada(fila);
-          /* Refresca también el banner de la marca, que se fue con ella. */
-          refrescarMarca(casaNorm);
-          avisar('Volvió a la lista, y se le quitó el check');
-        }).catch(() => avisar('No se pudo devolver la casa.', true));
+      const copiarCodigo = evento.target.closest('[data-copiar-codigo]');
+      if (copiarCodigo) {
+        const codigo = codigoDe(copiarCodigo.dataset.copiarCodigo);
+        if (!codigo) return;
+        copiarAlPortapapeles(codigo).then(() => {
+          copiarCodigo.classList.add('codigo__copiar--copiado');
+          setTimeout(() => copiarCodigo.classList.remove('codigo__copiar--copiado'), 1600);
+          avisar('Código copiado: ' + codigo);
+        }).catch(() => avisar('No se pudo copiar el código.', true));
       }
+    });
+
+    /* ── El check de la bitácora ──────────────────────────────────────────
+       Es lo único que pasa una casa a terminadas y lo único que la devuelve.
+       Si el guardado falla, el check se vuelve a poner como estaba: mejor que
+       quede claro que no se guardó, y no un check que dice una cosa mientras
+       el aparato tiene anotada la otra. */
+    $('#detalle').addEventListener('change', evento => {
+      const check = evento.target.closest('[data-bitacora]');
+      if (!check) return;
+
+      const casaNorm = check.dataset.bitacora;
+      const fila = estado.filas.find(f => f.casaNorm === casaNorm);
+      const cerrar = check.checked;
+
+      (cerrar ? darPorTerminada(casaNorm) : devolverTerminada(casaNorm)).then(() => {
+        if (fila) refrescarBitacora(fila);
+        pintarResultados();
+        avisar(cerrar
+          ? (fila ? fila.casa : casaNorm) + ' pasó a las terminadas.'
+          : 'Bitácora abierta otra vez: vuelve a la lista.');
+      }).catch(() => {
+        check.checked = !cerrar;
+        avisar('No se pudo guardar el check.', true);
+      });
     });
 
     /* El campo del código. Enter acepta, Escape descarta; escribir no guarda,
