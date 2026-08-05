@@ -106,6 +106,11 @@ body {
 .clip:active { transform: scale(.94); }
 .clip svg { width: 1.375rem; height: 1.375rem; }
 
+/* La tuerca queda marcada mientras se está en Ajustes: esa pantalla no tiene
+   botón abajo, así que es lo único que dice dónde estás. */
+.clip--activo { background: var(--tinta); color: #fff; }
+.clip--activo:hover { background: var(--tinta); }
+
 /* ══ Vistas ══════════════════════════════════════════════════════════════ */
 .vista { display: none; padding: 1rem .875rem 2rem; }
 .vista--activa { display: block; }
@@ -307,6 +312,10 @@ body {
   text-overflow: ellipsis;
 }
 
+/* El código va en la misma línea de abajo que el resto, pero destacado: es lo
+   que se busca, así que tiene que saltar antes que el tipo o el sprint. */
+.resultado__codigo { font-weight: 700; color: var(--verde-oscuro); }
+
 .pastilla {
   flex: none;
   display: inline-flex;
@@ -338,8 +347,47 @@ body {
   line-height: 1;
 }
 
+/* ══ Barra de terminadas ═════════════════════════════════════════════════
+   Va justo encima de la lista y solo aparece cuando hay alguna. Es una tira
+   fina a propósito: en el celular cada línea de alto que se le quite a la
+   lista de casas se nota. */
+.terminadas {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  width: 100%;
+  padding: .4375rem .875rem;
+  border: 0;
+  border-bottom: 1px solid var(--borde);
+  background: var(--fondo-alt);
+  font-family: inherit;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.terminadas:hover { background: var(--verde-suave); }
+.terminadas--activo {
+  background: var(--verde);
+  border-bottom-color: var(--verde);
+  color: var(--tinta);
+}
+.terminadas--activo:hover { background: #9dbe0e; }
+.terminadas__flecha { margin-left: auto; font-size: 1rem; line-height: 1; }
+
 /* ══ Detalle de la casa ══════════════════════════════════════════════════ */
 .columna--detalle { padding: 1rem .875rem 2rem; }
+
+/* El número de casa y el código, en la misma línea. Si no caben, el código
+   baja solo y queda debajo del número. */
+.ficha__encabezado {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem .75rem;
+}
 
 .ficha__casa {
   margin: 0;
@@ -347,6 +395,75 @@ body {
   font-weight: 700;
   letter-spacing: -.02em;
 }
+
+/* ── El código de la casa ─────────────────────────────────────────────────
+   De entrada parece una etiqueta con borde punteado: se ve que es un hueco
+   para llenar y no un dato del reporte. Se guarda solo cuando se acepta, con
+   Enter o con el ✓, así que mientras haya algo escrito sin guardar se pone en
+   ámbar y el ✓ queda a la vista. */
+.codigo { display: flex; align-items: center; gap: .375rem; }
+
+.codigo__campo {
+  width: 9.5rem;
+  min-height: 2rem;
+  padding: .25rem .6875rem;
+  border: 1px dashed var(--borde);
+  border-radius: 999px;
+  background: var(--fondo-alt);
+  font-family: inherit;
+  font-size: .8125rem;
+  font-weight: 700;
+  color: var(--tinta);
+  transition: border-color .15s, background .15s;
+}
+.codigo__campo::placeholder { font-weight: 400; color: #9aa08d; }
+.codigo__campo:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--verde);
+  background: var(--fondo);
+}
+
+.codigo--pendiente .codigo__campo {
+  border-style: solid;
+  border-color: #d8a72b;
+  background: #fdf8e9;
+}
+
+.codigo__ok {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--verde);
+  border-radius: 50%;
+  background: var(--verde);
+  color: var(--tinta);
+  font-size: .875rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.codigo__ok:hover { background: #9dbe0e; border-color: #9dbe0e; }
+
+/* ── Aviso de casa terminada ──────────────────────────────────────────────
+   Sale en la ficha de las que ya salieron de la lista de trabajo, con el
+   botón para devolverlas si fue por error. */
+.terminada-aviso {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .625rem .875rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--verde-borde);
+  border-radius: var(--radio);
+  background: var(--verde-suave);
+  font-size: .8125rem;
+  color: #47512f;
+}
+.terminada-aviso__texto { flex: 1; min-width: 0; }
+.terminada-aviso__texto strong { color: var(--tinta); }
 
 .ficha__contexto {
   display: flex;
@@ -485,7 +602,11 @@ body {
 .boton--copiar { min-height: 2rem; padding: .25rem .75rem; font-size: .8125rem; }
 .boton--copiado { background: var(--verde); border-color: var(--verde); }
 
-input:focus { outline: 2px solid var(--verde); outline-offset: -1px; }
+.boton--chico { min-height: 2rem; padding: .25rem .75rem; font-size: .8125rem; }
+.boton[disabled] { opacity: .45; cursor: default; }
+.boton[disabled]:hover { background: var(--fondo); }
+
+input:focus, textarea:focus { outline: 2px solid var(--verde); outline-offset: -1px; }
 
 /* ══ Tablas ══════════════════════════════════════════════════════════════ */
 .tabla-envoltura {
@@ -580,6 +701,87 @@ input:focus { outline: 2px solid var(--verde); outline-offset: -1px; }
   cursor: pointer;
 }
 .iconoboton:hover { background: #fbf3f1; color: var(--rojo); border-color: #e6cfc9; }
+
+/* ══ Ajustes (la tuerca) ═════════════════════════════════════════════════
+   Los textos que se copian, uno por etapa. Cada uno guarda por su cuenta:
+   así un cambio a medias en la etapa 3 no arrastra a las otras nueve. */
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  margin: 0 0 .25rem -.5rem;
+  padding: .25rem .75rem .25rem .5rem;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: .875rem;
+  font-weight: 600;
+  color: var(--verde-oscuro);
+  cursor: pointer;
+}
+.volver:hover { text-decoration: underline; }
+
+.ajuste {
+  padding: .75rem;
+  margin-bottom: .625rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo);
+}
+/* Los que están cambiados respecto del original se distinguen de un vistazo. */
+.ajuste--propio { border-color: var(--verde-borde); background: var(--verde-suave); }
+
+.ajuste__titulo {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: .25rem .5rem;
+  margin-bottom: .5rem;
+  font-size: .8125rem;
+  font-weight: 700;
+}
+.ajuste__corto { font-weight: 400; color: var(--tinta-suave); }
+
+.ajuste__sello {
+  margin-left: auto;
+  padding: .0625rem .4375rem;
+  border-radius: 999px;
+  background: var(--verde);
+  font-size: .625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--tinta);
+}
+
+.ajuste__campo {
+  display: block;
+  width: 100%;
+  padding: .5rem .625rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo);
+  font-family: inherit;
+  font-size: .875rem;
+  line-height: 1.5;
+  color: var(--tinta);
+  resize: vertical;
+}
+
+.ajuste__acciones {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .5rem;
+}
+.ajuste__estado { flex: 1; min-width: 0; font-size: .75rem; color: var(--tinta-suave); }
+.ajuste__estado--pendiente { color: #8a6a12; font-weight: 600; }
+
+.ajustes__pie {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borde);
+}
 
 /* ══ Vacíos ══════════════════════════════════════════════════════════════ */
 .vacio {
