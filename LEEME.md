@@ -44,9 +44,29 @@ tocar el `.bat`.
 
    Si el archivo no es el de siempre y no se reconoce ninguna casa, avisa en rojo
    y no guarda nada: el reporte que tenías sigue intacto.
-2. **Buscar**: escribí el número de casa. Funciona parcial y sin formato:
-   `102`, `1.02` y `VB-1.02` encuentran la misma casa.
-3. **Filtrar por grupo**: los botones bajo el buscador (**Todas · VB · VN · VC**)
+2. **Buscar**: escribí el número de casa **o su código**. Funciona parcial y sin
+   formato: `102`, `1.02` y `VB-1.02` encuentran la misma casa, y un código
+   `CR-8891` se encuentra escribiendo `cr8891`, `8891` o `CR`.
+3. **El código de cada casa**: al lado del número, en la ficha, hay un campito
+   para escribirle un código propio. Se guarda **cuando lo aceptás**: con Enter
+   o con el botón ✓ que aparece al lado. Mientras escribís no se guarda nada,
+   así un código a medias no queda anotado.
+
+   Mientras haya algo sin aceptar, el campo se pone en ámbar. Si te vas a otra
+   casa sin aceptar, la app te avisa que se perdió.
+
+   - Para **cambiarlo**, escribí encima y aceptá otra vez.
+   - Para **borrarlo**, dejá el campo vacío y aceptá.
+   - Si el código **ya está en otra casa**, te avisa y te dice en cuál. No te lo
+     bloquea: lo guarda igual y vos decidís. El aviso salta aunque lo hayas
+     escrito distinto (`ABC-1` y `abc1` cuentan como el mismo).
+
+   El código sale en la lista, en verde debajo del número. **No entra en el
+   texto que se copia**: es una guía para reconocer y encontrar la casa.
+
+   Va por número de casa, así que **sigue ahí cuando importás el reporte de la
+   semana siguiente**, y se sincroniza con los demás aparatos.
+4. **Filtrar por grupo**: los botones bajo el buscador (**Todas · VB · VN · VC**)
    limitan la búsqueda a un grupo. Sirven sobre todo cuando el número se repite:
    escribir `102` sin filtro trae VB-1.02, VN-1.02 y VC-1.02 juntas.
 
@@ -59,7 +79,7 @@ tocar el `.bat`.
    grupo (`1 · 2 · 3 · 10 · A`), que es lo que va entre el guion y el punto:
    `VB-5.14` es del bloque **5**. Con *Todas* no salen, porque un botón que
    dijera «1» mezclaría VB-1 con VN-1.
-4. **Copiar**: el texto sale generado según el % de avance. Botón *Copiar*.
+5. **Copiar**: el texto sale generado según el % de avance. Botón *Copiar*.
 
    Al copiar, la casa queda **marcada por 7 días**: al lado del botón sale
    *Añadido hoy*, que va cambiando solo (*ayer*, *hace 2 días*…) y desaparece al
@@ -68,7 +88,7 @@ tocar el `.bat`.
    La marca se guarda por número de casa, no por reporte, así que **sigue ahí
    cuando importás el reporte de la semana siguiente**, que es cuando sirve. Si
    copiaste solo para leer, tocá la marca y se quita.
-5. **Ver lo que falta**: a la derecha de la línea que cuenta las casas están
+6. **Ver lo que falta**: a la derecha de la línea que cuenta las casas están
    **Registradas** y **Pendientes**, cada uno con su número. Tocá *Pendientes* y
    quedan solo las que faltan; vas copiando y van saliendo solas de la lista
    hasta que no queda ninguna. Tocá el mismo botón otra vez y vuelven todas.
@@ -79,7 +99,33 @@ tocar el `.bat`.
    > Ojo: como la marca dura 7 días, *Pendientes* quiere decir «no la copié en
    > la última semana», no «no la copié nunca». Para el ritmo semanal calza, pero
    > si te atrasás, las de hace más de 7 días vuelven a salir como pendientes.
-6. **Medidor**: cuando *Obras Complementarias* está en **100 %**, la app le agrega
+7. **Las terminadas**: cuando copiás una casa que está en **100 % de eléctrico**,
+   queda dada por terminada y **sale de la lista de trabajo**. La lista te queda
+   solo con lo que falta, que es la gracia.
+
+   Arriba de la lista aparece una tira que dice **✓ 18 terminadas**. Tocala y se
+   ven solo ellas; tocá *Volver a las que faltan* y regresás.
+
+   **Esto no se vence**, a diferencia de la marca de 7 días. Una casa terminada
+   lo está para siempre.
+
+   > **Las que ya tenías registradas cuentan.** No hace falta volver a copiarlas:
+   > al abrir la app, toda casa en 100 % que tenga el check pasa sola a
+   > terminadas. La lista sirve desde el primer día.
+
+   - Si te equivocaste, abrí la casa y tocá **Devolver a la lista**. Le quita
+     también el check, porque devolverla es decir «esta no la reporté»; si el
+     check quedara, la casa se volvería a ir sola a terminadas.
+   - Si un reporte nuevo la trae **por debajo del 100 %** (una corrección en el
+     Excel), vuelve sola a la lista sin que toqués nada. Y si más adelante
+     vuelve al 100 %, vuelve a estar terminada.
+   - Hacen falta **las dos cosas**: 100 % y registrada. Una casa en 100 % que
+     todavía no copiaste sigue en la lista, que es justo donde la querés.
+
+   > Esta pantalla necesita una tabla nueva en Supabase. Mientras no se corra el
+   > SQL, las terminadas funcionan en el aparato pero no se sincronizan, y en
+   > *Historial* sale el aviso de que faltan las tablas.
+8. **Medidor**: cuando *Obras Complementarias* está en **100 %**, la app le agrega
    sola este texto al final:
 
    > , adicionalmente se comenta que la construccion ya cuenta con medidor provisional
@@ -104,25 +150,46 @@ El % de avance eléctrico del reporte decide la etapa, y cada etapa tiene su tex
 | 26–37 | 3 | | 88–99 | 8 |
 | 38–50 | 4 | | 100 | 9 |
 
-Tanto los **tramos** como los **textos** se cambian en `js/textos.js`, con el
-Bloc de notas. Están al principio del archivo, con un comentario que explica cada
-cosa. No se editan desde la app a propósito: no son cosa del día a día, y así no
-se cambian por accidente.
+## Cambiar los textos (la tuerca ⚙)
+
+El botón de **tuerca**, al lado del clip, abre una pantalla con **los diez textos
+de etapa y la línea del medidor**, cada uno rotulado con su tramo de porcentajes
+para que sepas cuál estás tocando.
+
+Se guarda **cuando tocás Guardar**. Escribir no guarda nada. Y los cambios **se
+sincronizan**: los hacés una vez y quedan iguales en la compu y en el celular.
+
+La red de seguridad, porque este texto es el corazón de la app:
+
+- Cada texto tiene su **Restaurar**, que le devuelve el original.
+- **Si dejás un campo vacío y guardás, vuelve solo el original.** No hay forma
+  de quedarse sin texto.
+- Abajo del todo, **Restaurar todos los textos** deja todo como venía de fábrica.
+
+Los originales nunca se tocan: viven en `js/textos.js` y lo que escribís se
+guarda encima. Por eso *Restaurar* siempre tiene a qué volver.
+
+> Los **tramos de porcentaje** (que la etapa 6 vaya de 63 a 75, por ejemplo) **no**
+> se cambian desde la app, a propósito: los textos se cambian por redacción y eso
+> pasa seguido, pero mover un tramo mal reacomoda todas las casas de golpe.
+
+### Lo que todavía se cambia en los archivos
+
+Con el Bloc de notas, en `js/textos.js`:
 
 - Para mover un tramo: la lista `LIMITES_DE_ETAPAS`.
-- Para cambiar un texto de etapa: la lista `ETAPAS_ELECTRICAS`.
-- Para el medidor: `TEXTO_MEDIDOR` es el texto, y `COMPLEMENTARIAS_CON_MEDIDOR`
-  es el porcentaje a partir del cual se agrega (hoy, 100). La excepción de las
-  casas finalizadas está en `llevaLineaDeMedidor()`, ahí mismo.
+- Para el porcentaje a partir del cual se agrega el medidor (hoy, 100):
+  `COMPLEMENTARIAS_CON_MEDIDOR`. La excepción de las casas finalizadas está en
+  `llevaLineaDeMedidor()`, ahí mismo.
 - Para el orden de los botones de grupo: la lista `ORDEN_DE_GRUPOS`.
 - Para los días que dura la marca de copiado: `DIAS_DE_MARCA`, en `js/app.js`.
 
-Después de editar: abrí el `.bat`, dejá que cargue la app, **cerrala y volvé a
-abrirla**. La primera vez la app renueva su copia guardada, y la segunda ya muestra
-el cambio.
+Después de editar un archivo hay que subirlo a GitHub, y en la app **cerrarla y
+volver a abrirla**: la primera vez renueva su copia guardada y la segunda ya
+muestra el cambio.
 
 > Si el cambio no aparece, subí en uno el número de `CACHE` en `sw.js`
-> (`reportes-v7` → `reportes-v8`) y repetí los dos pasos.
+> (`reportes-v8` → `reportes-v9`) y repetí los dos pasos.
 
 ## La nube (ver lo mismo en la compu y en el celular)
 
@@ -130,8 +197,18 @@ La app está publicada en **https://sofarayaceci-gif.github.io/-reportes/**. Ese
 el enlace que se abre en cualquier aparato y el que se instala como app.
 
 **No hay que entrar ni escribir nada.** Se abre el enlace y se sincroniza sola por
-detrás: los reportes y las marcas de «añadido». En la pestaña **Historial**, arriba,
-se ve cómo fue la última vez, y si algo falló aparece un botón de *Reintentar*.
+detrás. Va y viene todo lo que no se puede sacar del Excel:
+
+| | |
+|---|---|
+| Los reportes importados | con sus casas |
+| Las marcas de «añadido» | las de 7 días |
+| **Los códigos** de cada casa | |
+| **Las casas terminadas** | |
+| **Los textos** que hayas cambiado con la tuerca | |
+
+En la pestaña **Historial**, arriba, se ve cómo fue la última vez, y si algo falló
+aparece un botón de *Reintentar*.
 
 > **Lo local sigue mandando.** IndexedDB es la copia con la que la app trabaja, y
 > la nube solo la empareja cuando hay internet. **Sin señal la app funciona
@@ -140,10 +217,14 @@ se ve cómo fue la última vez, y si algo falló aparece un botón de *Reintenta
 
 ### Detalles que conviene saber
 
-- **Las marcas se juntan, no se reemplazan.** Si dos aparatos tienen algo
-  distinto, para cada casa queda la fecha más nueva. Nunca se pierde una marca.
-  Lo peor que puede pasar es que reaparezca una que quitaste sin señal, y se
-  quita otra vez.
+- **Las marcas, los códigos y las terminadas se juntan, no se reemplazan.** Si
+  dos aparatos tienen algo distinto, para cada casa queda uno solo: la marca más
+  nueva, el código escrito más tarde, y la fecha en que se terminó por primera
+  vez. Nunca se pierde nada. Lo peor que puede pasar es que reaparezca algo que
+  borraste sin señal, y se borra otra vez.
+- **Los textos de la tuerca no se juntan: gana el más nuevo, entero.** Son textos
+  que se escriben de tanto en tanto y desde un solo lado, y mezclar la mitad de
+  un aparato con la mitad del otro dejaría un reporte que no escribió nadie.
 - **Borrar un reporte lo borra en la nube también.** Si no hay señal en ese
   momento, avisa: se borró en el aparato pero no en la nube, así que va a volver
   a bajar en la próxima sincronización.
@@ -181,9 +262,10 @@ La razón es que la app no guarda casi **nada** que no se pueda regenerar. Todo 
 que muestra sale del Excel. Si algún día se limpian los datos de Chrome, se vuelven
 a importar los reportes y queda igual que antes.
 
-Lo único que no se regenera del Excel son las marcas de «añadido», porque salen de
-lo que copiaste. **Con la nube ya no se pierden**: si se limpian los datos de
-Chrome, al volver a abrir la app bajan de nuevo.
+Lo que **no** se regenera del Excel es lo que escribiste vos: las marcas de
+«añadido», los códigos de cada casa, cuáles quedaron terminadas y los textos que
+hayas cambiado con la tuerca. **Con la nube ya no se pierden**: si se limpian los
+datos de Chrome, al volver a abrir la app bajan de nuevo.
 
 > Los `.xlsx` semanales son el respaldo real. Mientras los tengas guardados, no
 > hay nada que perder.
@@ -195,12 +277,12 @@ Chrome, al volver a abrir la app bajan de nuevo.
 | `Abrir Reportes.bat` | Levanta el servidor local. Solo para instalar o actualizar |
 | `index.html` | La pantalla |
 | `css/estilos.css` | Colores y diseño (verde `#add010`) |
-| `js/textos.js` | Los textos, la relación % → etapa, la regla del medidor, los grupos y los bloques |
+| `js/textos.js` | Los textos de fábrica, la relación % → etapa, la regla del medidor, los grupos y los bloques |
 | `js/excel.js` | Lectura del `.xlsx` y reconocimiento de hoja y columnas |
 | `js/almacen.js` | Guardado local |
 | `js/nube.js` | Sincronización con Supabase (subir y bajar) |
 | `supabase/esquema.sql` | Las tablas y las reglas de acceso de la base |
-| `js/app.js` | Búsqueda, filtros, marcas de copiado, importación, historial |
+| `js/app.js` | Búsqueda, filtros, marcas, códigos, terminadas, ajustes, importación, historial |
 | `sw.js` | Funcionamiento sin internet |
 | `servidor.ps1` | Servidor local |
 | `vendor/xlsx.full.min.js` | SheetJS, la librería que lee Excel |

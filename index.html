@@ -19,6 +19,16 @@
     <h1 class="barra__titulo">Reportes</h1>
     <p class="barra__sub" id="barraSub">Sin reportes</p>
   </div>
+  <!-- La tuerca va antes del clip a propósito: el clip es lo que se usa todas
+       las semanas y se queda donde siempre estuvo, en la punta. -->
+  <button type="button" class="clip" id="btnAjustes" aria-label="Ajustes de los textos" title="Ajustes de los textos">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="3.25" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+            fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
   <button type="button" class="clip" id="btnImportar" aria-label="Importar reporte de Excel" title="Importar reporte de Excel">
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M8.5 13.5l7-7a3.5 3.5 0 0 1 5 5l-9 9a5.5 5.5 0 0 1-7.8-7.8l8.3-8.3"
@@ -41,8 +51,8 @@
             <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
             <path d="M16.5 16.5L21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <input type="search" id="busqueda" placeholder="Número de casa" autocomplete="off"
-                 autocapitalize="characters" spellcheck="false" aria-label="Buscar número de casa">
+          <input type="search" id="busqueda" placeholder="Número de casa o código" autocomplete="off"
+                 autocapitalize="characters" spellcheck="false" aria-label="Buscar por número de casa o por código">
           <button type="button" class="buscador__limpiar" id="btnLimpiar" aria-label="Limpiar búsqueda" hidden>&times;</button>
         </div>
         <!-- Los botones de grupo (Todas · VB · VN · VC) y los de bloque
@@ -58,6 +68,10 @@
             <button type="button" class="filtro" data-registro="no">Pendientes <span class="filtro__n"></span></button>
           </div>
         </div>
+        <!-- Las casas que llegaron al 100 % y ya se registraron salen de la
+             lista de trabajo y se ven acá. La barra aparece sola cuando hay
+             al menos una; app.js la llena. -->
+        <button type="button" class="terminadas" id="btnTerminadas" aria-pressed="false" hidden></button>
         <ul class="resultados" id="resultados"></ul>
       </div>
 
@@ -97,6 +111,29 @@
     <div class="vacio vacio--bloque" id="historialVacio">
       <p>Todavía no has importado ningún reporte.</p>
       <button type="button" class="boton boton--principal" id="btnImportarVacio">Importar el primero</button>
+    </div>
+  </section>
+
+  <!-- ══════════════ AJUSTES ══════════════
+       No tiene botón en la navegación de abajo: se llega con la tuerca de la
+       barra y se sale con «Volver». Es una pantalla de vez en cuando, no una
+       de las dos que se usan todos los días. -->
+  <section class="vista" id="vista-ajustes">
+    <button type="button" class="volver" id="btnVolver">&lsaquo; Volver</button>
+
+    <h2 class="titulo">Textos del reporte</h2>
+    <p class="ayuda">
+      Esto es lo que se copia para cada casa, según el avance que traiga el
+      reporte. Los cambios se guardan cuando tocás <strong>Guardar</strong>, y se
+      sincronizan con los demás aparatos.
+    </p>
+
+    <!-- Los diez campos y el del medidor los arma app.js, para que los rótulos
+         de los tramos salgan de los mismos números que usa el cálculo. -->
+    <div id="listaTextos"></div>
+
+    <div class="ajustes__pie">
+      <button type="button" class="boton" id="btnRestaurarTodo">Restaurar todos los textos</button>
     </div>
   </section>
 
