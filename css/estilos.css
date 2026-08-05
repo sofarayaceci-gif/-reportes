@@ -447,23 +447,86 @@ body {
 }
 .codigo__ok:hover { background: #9dbe0e; border-color: #9dbe0e; }
 
-/* ── Aviso de casa terminada ──────────────────────────────────────────────
-   Sale en la ficha de las que ya salieron de la lista de trabajo, con el
-   botón para devolverlas si fue por error. */
-.terminada-aviso {
+/* El de copiar va en contorno y no relleno: así el ✓ verde sigue siendo el
+   único botón que pesa, que es el que guarda. */
+.codigo__copiar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--borde);
+  border-radius: 50%;
+  background: var(--fondo);
+  color: var(--tinta-suave);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.codigo__copiar svg { width: 1rem; height: 1rem; }
+.codigo__copiar:hover {
+  border-color: var(--verde);
+  background: var(--verde-suave);
+  color: var(--verde-oscuro);
+}
+.codigo__copiar--copiado {
+  border-color: var(--verde);
+  background: var(--verde);
+  color: var(--tinta);
+}
+.codigo__copiar--copiado svg { display: none; }
+.codigo__copiar--copiado::after {
+  content: '\2713';
+  font-size: .875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── El check de la bitácora ──────────────────────────────────────────────
+   Sale en la ficha de las casas en 100 %. Marcado es lo que las saca de la
+   lista de trabajo; sin marcar, la casa sigue por hacer aunque el Excel diga
+   100 %. Todo el bloque es la etiqueta, así que se puede tocar en cualquier
+   parte y no solo en el cuadrito. */
+.bitacora {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: .625rem;
   padding: .625rem .875rem;
   margin-bottom: 1rem;
-  border: 1px solid var(--verde-borde);
+  border: 1px solid var(--borde);
   border-radius: var(--radio);
-  background: var(--verde-suave);
+  background: var(--fondo-alt);
   font-size: .8125rem;
+  color: var(--tinta-suave);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.bitacora:hover { border-color: var(--verde); }
+
+.bitacora--cerrada {
+  border-color: var(--verde-borde);
+  background: var(--verde-suave);
   color: #47512f;
 }
-.terminada-aviso__texto { flex: 1; min-width: 0; }
-.terminada-aviso__texto strong { color: var(--tinta); }
+
+.bitacora__check {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: .1875rem 0 0;
+  /* El verde institucional es muy claro para llevar el ✓ blanco del navegador
+     encima; el oscuro es el mismo color de la casa y sí se lee. */
+  accent-color: var(--verde-oscuro);
+  cursor: pointer;
+}
+
+.bitacora__texto { flex: 1; min-width: 0; }
+.bitacora__texto strong {
+  display: block;
+  color: var(--tinta);
+  font-size: .875rem;
+}
+.bitacora__nota { display: block; }
 
 .ficha__contexto {
   display: flex;
