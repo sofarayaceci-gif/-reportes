@@ -85,15 +85,26 @@ create table if not exists public.codigos (
 );
 
 /* ── Las casas terminadas ─────────────────────────────────────────────────
-   Una casa entra acá cuando llega al 100 % de eléctrico y se registra. A
-   diferencia de las marcas, esto NO se vence: terminada es terminada.
+   El check de «bitácora cerrada» de cada casa. Lo pone y lo quita la persona
+   a mano; llegar al 100 % en el Excel no lo pone solo.
 
-   Sale de acá en dos casos, los dos manejados por la app: si un reporte
-   nuevo la trae por debajo del 100 %, o si se devuelve a mano. */
+   Hay una fila por cada casa que se haya tocado alguna vez, esté el check
+   puesto o no: «cerrada» dice cómo quedó y «fecha» cuándo fue.
+
+   Las filas NO se borran al quitar el check, y eso es a propósito. Si se
+   borraran, cualquier otro aparato que todavía tuviera la casa guardada la
+   volvería a subir al abrir la app y el check reaparecería en todos lados.
+   Con la fila en falso hay algo que comparar, y gana la fecha más nueva: la
+   última vez que alguien tocó el check, sea para ponerlo o para quitarlo. */
 create table if not exists public.terminadas (
   casa_norm text primary key,
+  cerrada   boolean not null default true,
   fecha     timestamptz not null
 );
+
+/* Para los proyectos que crearon la tabla antes de que existiera la columna.
+   Las filas que ya estaban eran todas cierres, así que el default les calza. */
+alter table public.terminadas add column if not exists cerrada boolean not null default true;
 
 /* ── Ajustes de la app ────────────────────────────────────────────────────
    Una fila por ajuste, con el valor entero en un jsonb. Hoy el único que se
