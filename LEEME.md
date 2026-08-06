@@ -120,7 +120,8 @@ tocar el `.bat`.
    lo está para siempre.
 
    - Si te equivocaste, abrí la casa y **quitá el check**: vuelve a la lista al
-     toque. No pierde la marca de registrada, que es otra cosa.
+     toque. No pierde la marca de registrada, que es otra cosa. Y se lo quita
+     también a las demás computadoras.
    - Si un reporte nuevo la trae **por debajo del 100 %** (una corrección en el
      Excel), vuelve sola a la lista sin que toqués nada, con el check puesto y
      una nota que lo explica. Si más adelante vuelve al 100 %, vuelve a estar
@@ -222,11 +223,21 @@ aparece un botón de *Reintentar*.
 
 ### Detalles que conviene saber
 
-- **Las marcas, los códigos y las terminadas se juntan, no se reemplazan.** Si
-  dos aparatos tienen algo distinto, para cada casa queda uno solo: la marca más
-  nueva, el código escrito más tarde, y la fecha en que se terminó por primera
-  vez. Nunca se pierde nada. Lo peor que puede pasar es que reaparezca algo que
-  borraste sin señal, y se borra otra vez.
+- **Las marcas y los códigos se juntan, no se reemplazan.** Si dos aparatos
+  tienen algo distinto, para cada casa queda uno solo: la marca más nueva y el
+  código escrito más tarde. Nunca se pierde nada. Lo peor que puede pasar es que
+  reaparezca algo que borraste sin señal, y se borra otra vez.
+- **Los checks de bitácora funcionan distinto: gana la última vez que se tocó.**
+  Poner y quitar pesan igual, así que **si le quitás el check en una compu, se le
+  quita en todas**.
+
+  Tienen que ser así por algo concreto: la app se acuerda de los checks que
+  quitaste, no solo de los que pusiste. Si simplemente los olvidara, otra compu
+  que todavía tuviera la casa cerrada la volvería a cerrar en todas en cuanto
+  alguien abriera la app ahí. Pasó, y por eso se cambió.
+
+  El único caso raro es tocar la misma casa en dos compus sin internet: gana la
+  que se tocó última por reloj.
 - **Los textos de la tuerca no se juntan: gana el más nuevo, entero.** Son textos
   que se escriben de tanto en tanto y desde un solo lado, y mezclar la mitad de
   un aparato con la mitad del otro dejaría un reporte que no escribió nadie.
