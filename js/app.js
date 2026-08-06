@@ -272,6 +272,34 @@
      está para siempre.
      ══════════════════════════════════════════════════════════════════════════ */
 
+  /* Cada casa guarda { cerrada, fecha }: si el check está puesto y cuándo se
+     tocó por última vez. Quitar el check NO borra la anotación, la deja en
+     falso — así el aparato se acuerda de que la abriste y puede decírselo a
+     los demás. Sin eso, la compu que todavía la tuviera cerrada la volvería a
+     cerrar en todas en cuanto se abriera la app. */
+  function bitacoraDe(casaNorm) {
+    return estado.terminadas[casaNorm] || null;
+  }
+
+  /* Lo guardado antes de que existiera el check era { casa: fecha } a secas, y
+     todo lo anotado era un cierre. Se convierte al leerlo, así no hay que
+     preguntarse en cada lugar con cuál de los dos formatos se está tratando. */
+  function alFormatoNuevo(guardado) {
+    if (!guardado || typeof guardado !== 'object') return {};
+    const nuevo = {};
+    Object.keys(guardado).forEach(casa => {
+      const valor = guardado[casa];
+      if (typeof valor === 'string') nuevo[casa] = { cerrada: true, fecha: valor };
+      else if (valor && valor.fecha) nuevo[casa] = { cerrada: valor.cerrada !== false, fecha: valor.fecha };
+    });
+    return nuevo;
+  }
+
+  function tieneLaBitacoraCerrada(casaNorm) {
+    const b = bitacoraDe(casaNorm);
+    return !!b && b.cerrada;
+  }
+
   /* Hacen falta las dos cosas: que tenga la bitácora cerrada, y que el reporte
      que se está viendo la traiga en 100 %.
 
@@ -280,7 +308,7 @@
      que haya que tocar nada, y si más adelante vuelve al 100 %, vuelve a estar
      terminada. El check no se borra por eso: solo deja de aplicar. */
   function esTerminada(fila) {
-    if (!estado.terminadas[fila.casaNorm]) return false;
+    if (!tieneLaBitacoraCerrada(fila.casaNorm)) return false;
     return etapaDesdePorcentaje(fila.porcentaje) === ETAPA_FINALIZADA;
   }
 
@@ -288,25 +316,28 @@
     return Almacen.guardarAjuste('terminadas', estado.terminadas);
   }
 
-  function darPorTerminada(casaNorm) {
-    if (estado.terminadas[casaNorm]) return Promise.resolve();
-    estado.terminadas[casaNorm] = new Date().toISOString();
+  /* Marcar y desmarcar hacen lo mismo salvo por el valor de «cerrada»: los dos
+     dejan anotada la casa con la fecha de ahora, y los dos la mandan a la
+     nube. Que pesen igual es justamente el punto. */
+  function ponerBitacora(casaNorm, cerrada) {
+    const anotacion = { cerrada: cerrada, fecha: new Date().toISOString() };
+    estado.terminadas[casaNorm] = anotacion;
     return guardarTerminadas().then(() => {
       const sola = {};
-      sola[casaNorm] = estado.terminadas[casaNorm];
+      sola[casaNorm] = anotacion;
       Nube.subirTerminadas(sola).catch(() => {});
     });
+  }
+
+  function darPorTerminada(casaNorm) {
+    return ponerBitacora(casaNorm, true);
   }
 
   /* Abrir la bitácora otra vez. La marca de registrada no se toca: son dos
      cosas distintas, y que la casa vuelva a la lista no borra que su texto ya
      se copió esta semana. */
   function devolverTerminada(casaNorm) {
-    if (!estado.terminadas[casaNorm]) return Promise.resolve();
-    delete estado.terminadas[casaNorm];
-    return guardarTerminadas().then(() => {
-      Nube.borrarTerminada(casaNorm).catch(() => {});
-    });
+    return ponerBitacora(casaNorm, false);
   }
 
 
@@ -641,12 +672,12 @@
      marca: así se puede cambiar en su lugar sin repintar la ficha entera y
      perder el «¡Copiado!» del botón. */
   function bitacoraHTML(fila) {
-    const cerrada = !!estado.terminadas[fila.casaNorm];
+    const cerrada = tieneLaBitacoraCerrada(fila.casaNorm);
     const enCien = etapaDesdePorcentaje(fila.porcentaje) === ETAPA_FINALIZADA;
     if (!cerrada && !enCien) return '<div id="bitacora" hidden></div>';
 
     const cuando = cerrada
-      ? fechaLegible(estado.terminadas[fila.casaNorm]).split(' · ')[0] : '';
+      ? fechaLegible(bitacoraDe(fila.casaNorm).fecha).split(' · ')[0] : '';
     /* Cerrada pero por debajo del 100 % es el caso raro: un reporte nuevo la
        corrigió para abajo. Vale la pena decirlo, porque explica por qué sigue
        apareciendo en la lista con el check puesto. */
@@ -1064,14 +1095,21 @@
     });
   }
 
-  /* Las terminadas también se juntan, y acá gana la fecha más vieja: la que
-     interesa es cuándo se dio por terminada la primera vez. */
+  /* Las terminadas no se juntan como las marcas: para cada casa gana la fecha
+     más nueva, sea un check puesto o uno quitado.
+
+     Es al revés de lo que hacían antes, que se quedaban con la fecha más vieja
+     por guardar cuándo se terminó la primera vez. Eso hacía que quitar un
+     check no sirviera de nada entre aparatos: el que todavía la tuviera
+     cerrada —con su fecha vieja, la que ganaba— la volvía a cerrar en todos.
+     Ahora lo que vale es la última vez que alguien la tocó. */
   function sincronizarTerminadas() {
     return Nube.leerTerminadas().then(remotas => {
       const unidas = Object.assign({}, remotas);
       Object.keys(estado.terminadas).forEach(casa => {
         const local = estado.terminadas[casa];
-        if (!unidas[casa] || new Date(local) < new Date(unidas[casa])) unidas[casa] = local;
+        const otra = unidas[casa];
+        if (!otra || new Date(local.fecha) > new Date(otra.fecha)) unidas[casa] = local;
       });
       estado.terminadas = unidas;
 
@@ -1173,7 +1211,7 @@
       estado.reportes = reportes;
       estado.marcas = marcas && typeof marcas === 'object' ? marcas : {};
       estado.codigos = codigos && typeof codigos === 'object' ? codigos : {};
-      estado.terminadas = terminadas && typeof terminadas === 'object' ? terminadas : {};
+      estado.terminadas = alFormatoNuevo(terminadas);
 
       /* Los textos propios se aplican antes de pintar nada: si no, la primera
          pantalla saldría con los de fábrica y cambiaría sola un instante

@@ -226,21 +226,35 @@ const Nube = (() => {
   }
 
   /* ── Terminadas ───────────────────────────────────────────────────────────
-     Las casas que llegaron al 100 % y ya se registraron. A diferencia de las
-     marcas, estas no se vencen: una casa terminada lo está para siempre. */
+     El check de «bitácora cerrada» de cada casa.
+
+     Acá la fila NO se borra al quitar el check: se guarda con «cerrada» en
+     falso y la fecha de cuándo se quitó. Es la única forma de que quitar un
+     check se propague. Si se borrara la fila, cualquier otro aparato que
+     todavía la tuviera guardada la volvería a subir al abrir la app, y el
+     check reaparecería en todos lados.
+
+     Con la fila puesta en falso, en cambio, los dos aparatos tienen algo que
+     comparar y gana la fecha más nueva, o sea la última vez que alguien tocó
+     el check. Marcar y desmarcar pesan igual. */
 
   function leerTerminadas() {
-    return pedir('terminadas?select=casa_norm,fecha', { prefer: 'return=representation' })
+    return pedir('terminadas?select=casa_norm,cerrada,fecha', { prefer: 'return=representation' })
       .then(lista => {
         const mapa = {};
-        (lista || []).forEach(t => { mapa[t.casa_norm] = t.fecha; });
+        (lista || []).forEach(t => {
+          /* Las filas de antes de esta columna no la traen; eran todas cierres. */
+          mapa[t.casa_norm] = { cerrada: t.cerrada !== false, fecha: t.fecha };
+        });
         return mapa;
       });
   }
 
   function subirTerminadas(terminadas) {
     const filas = Object.keys(terminadas || {}).map(casa => ({
-      casa_norm: casa, fecha: terminadas[casa]
+      casa_norm: casa,
+      cerrada: !!terminadas[casa].cerrada,
+      fecha: terminadas[casa].fecha
     }));
     if (!filas.length) return Promise.resolve(null);
     return pedir('terminadas', {
@@ -248,10 +262,6 @@ const Nube = (() => {
       cabeceras: { Prefer: 'resolution=merge-duplicates,return=minimal' },
       cuerpo: filas
     });
-  }
-
-  function borrarTerminada(casaNorm) {
-    return pedir('terminadas?casa_norm=eq.' + encodeURIComponent(casaNorm), { metodo: 'DELETE' });
   }
 
   /* ── Ajustes ──────────────────────────────────────────────────────────────
@@ -280,7 +290,7 @@ const Nube = (() => {
     listarReportes, subirReporte, filasDeReporte, borrarReporte,
     leerMarcas, subirMarcas, borrarMarca, borrarMarcasQueSobran,
     leerCodigos, subirCodigos, borrarCodigo,
-    leerTerminadas, subirTerminadas, borrarTerminada,
+    leerTerminadas, subirTerminadas,
     leerAjuste, subirAjuste
   };
 })();
