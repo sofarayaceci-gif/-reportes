@@ -303,3 +303,4 @@ datos de Chrome, al volver a abrir la app bajan de nuevo.
 - La app usa la hoja que reconoce sola. Si algún reporte viniera con otro nombre de
   hoja o de columnas, no habría cómo corregirlo desde la pantalla: habría que
   ajustar los patrones en `js/excel.js`.
+  
