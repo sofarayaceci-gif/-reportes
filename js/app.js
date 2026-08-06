@@ -309,26 +309,6 @@
     });
   }
 
-  /* Todas de un golpe, desde Ajustes. Devuelve cuántas abrió.
-
-     Se borran también las que estén en la nube y no acá. Tiene que ser así:
-     las terminadas se juntan en vez de reemplazarse, así que una sola que
-     quede arriba vuelve a bajar en el próximo arranque y el botón parecería no
-     haber servido. Por lo mismo acá sí se espera a la nube y sí importa si
-     falla, al revés que en el resto de la app. */
-  function abrirTodasLasBitacoras() {
-    const locales = Object.keys(estado.terminadas);
-    estado.terminadas = {};
-    return guardarTerminadas()
-      .then(() => Nube.leerTerminadas())
-      .then(remotas => {
-        const todas = locales.slice();
-        Object.keys(remotas).forEach(casa => {
-          if (todas.indexOf(casa) === -1) todas.push(casa);
-        });
-        return enFila(todas, casa => Nube.borrarTerminada(casa)).then(() => todas.length);
-      });
-  }
 
   /* ── Navegación entre vistas ────────────────────────────────────────────── */
 
@@ -1441,30 +1421,6 @@
         refrescarVistaBuscar();
         avisar('Volvieron todos los textos originales');
       }).catch(() => avisar('No se pudieron restaurar los textos.', true));
-    });
-
-    /* Abrir todas las bitácoras. Está acá y no en la pantalla de buscar porque
-       es de las de una vez cada tanto: al empezar un ciclo, o para deshacer un
-       montón de checks de golpe. */
-    $('#btnAbrirBitacoras').addEventListener('click', () => {
-      const cuantas = Object.keys(estado.terminadas).length;
-      const pregunta = cuantas === 1
-        ? '¿Abrir la única bitácora cerrada?'
-        : '¿Abrir las ' + cuantas + ' bitácoras cerradas?';
-      if (cuantas && !confirm(pregunta + '\n\n' +
-        'Las casas vuelven a la lista con el check en blanco, para que las marqués ' +
-        'vos. No pierden la marca de registradas.')) return;
-
-      abrirTodasLasBitacoras().then(n => {
-        refrescarVistaBuscar();
-        avisar(!n ? 'No había ninguna bitácora cerrada.'
-          : n === 1 ? 'Se abrió 1 bitácora' : 'Se abrieron ' + n + ' bitácoras');
-      }).catch(() => {
-        /* Acá ya quedaron abiertas; lo que falló es la nube. Hay que decirlo,
-           porque si no vuelven solas la próxima vez que se abra la app. */
-        refrescarVistaBuscar();
-        avisar('Se abrieron acá, pero no en la nube: sin señal. Tocalo otra vez con conexión.', true);
-      });
     });
 
     /* ── La nube ──────────────────────────────────────────────────────────
