@@ -106,6 +106,19 @@ create table if not exists public.terminadas (
    Las filas que ya estaban eran todas cierres, así que el default les calza. */
 alter table public.terminadas add column if not exists cerrada boolean not null default true;
 
+/* ── Papeles entregados ───────────────────────────────────────────────────
+   El otro check de la ficha, el de abajo del texto. Sale en las casas que el
+   reporte trae al 100 %.
+
+   Va igual que las terminadas, y por el mismo motivo: la fila se queda con
+   «entregados» en falso al destildarlo, para que quitar el check se propague
+   a las demás computadoras en vez de que una copia vieja lo reviva. */
+create table if not exists public.papeles (
+  casa_norm  text primary key,
+  entregados boolean not null default true,
+  fecha      timestamptz not null
+);
+
 /* ── Ajustes de la app ────────────────────────────────────────────────────
    Una fila por ajuste, con el valor entero en un jsonb. Hoy el único que se
    guarda son los textos del reporte, los que se cambian desde la tuerca.
@@ -137,6 +150,7 @@ grant select, insert, update, delete on public.filas      to anon, authenticated
 grant select, insert, update, delete on public.marcas     to anon, authenticated;
 grant select, insert, update, delete on public.codigos    to anon, authenticated;
 grant select, insert, update, delete on public.terminadas to anon, authenticated;
+grant select, insert, update, delete on public.papeles    to anon, authenticated;
 grant select, insert, update, delete on public.ajustes    to anon, authenticated;
 
 /* RLS queda encendido igual: sin encenderlo, PostgREST no expone las tablas. */
@@ -145,6 +159,7 @@ alter table public.filas      enable row level security;
 alter table public.marcas     enable row level security;
 alter table public.codigos    enable row level security;
 alter table public.terminadas enable row level security;
+alter table public.papeles    enable row level security;
 alter table public.ajustes    enable row level security;
 
 /* El «drop policy if exists» antes de cada una es lo que permite correr este
@@ -167,6 +182,10 @@ create policy "abierto" on public.codigos for all to anon, authenticated
 
 drop policy if exists "abierto" on public.terminadas;
 create policy "abierto" on public.terminadas for all to anon, authenticated
+  using (true) with check (true);
+
+drop policy if exists "abierto" on public.papeles;
+create policy "abierto" on public.papeles for all to anon, authenticated
   using (true) with check (true);
 
 drop policy if exists "abierto" on public.ajustes;
