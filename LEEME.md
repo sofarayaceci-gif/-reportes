@@ -93,8 +93,9 @@ tocar el `.bat`.
    La marca se guarda por número de casa, no por reporte, así que **sigue ahí
    cuando importás el reporte de la semana siguiente**, que es cuando sirve. Si
    copiaste solo para leer, tocá la marca y se quita.
-6. **Ver lo que falta**: a la derecha de la línea que cuenta las casas están
-   **Registradas** y **Pendientes**, cada uno con su número. Tocá *Pendientes* y
+6. **Ver lo que falta**: debajo de la línea que cuenta las casas hay un renglón
+   **Esta semana** con **Registradas** y **Pendientes**, cada uno con su número.
+   Tocá *Pendientes* y
    quedan solo las que faltan; vas copiando y van saliendo solas de la lista
    hasta que no queda ninguna. Tocá el mismo botón otra vez y vuelven todas.
 
@@ -137,9 +138,11 @@ tocar el `.bat`.
    cerrada y los papeles sin entregar, o al revés. Y **no la saca de ninguna
    lista** — queda anotado y ya.
 
-   Para verlos, arriba de la lista salen **Con papeles** y **Sin papeles**, con
-   su número. Funcionan igual que *Registradas / Pendientes*: tocás uno y quedan
-   solo esas, tocás el mismo otra vez y vuelven todas.
+   Para verlos, arriba de la lista hay un renglón **Papeles** con **Entregados**
+   y **Sin entregar**, cada uno con su número. Funcionan igual que el renglón de
+   arriba: tocás uno y quedan solo esas, tocás el mismo otra vez y vuelven todas.
+   Los dos renglones se combinan, así que podés pedir las registradas esta
+   semana que además están sin entregar.
 
    Los dos números cuentan **solo las casas al 100 %**, que son las únicas donde
    el check corresponde. Por eso no suman el reporte entero, y por eso la fila

@@ -60,18 +60,24 @@
              bloque solo salen cuando hay un grupo elegido. -->
         <div class="grupos" id="grupos" role="group" aria-label="Filtrar por grupo" hidden></div>
         <div class="grupos grupos--sub" id="subgrupos" role="group" aria-label="Filtrar por bloque" hidden></div>
-        <!-- La cuenta de casas y, a la derecha, el filtro por el check. -->
+        <!-- La cuenta de casas y, debajo, los filtros. Cada par va en su
+             renglón con un rótulo a la izquierda: apretados en una sola línea
+             no se sabía cuál filtraba qué. -->
         <div class="conteo" id="conteoFila" hidden>
           <p class="conteo__texto" id="conteo"></p>
-          <div class="conteo__filtros" id="registro">
-            <button type="button" class="filtro" data-registro="si">Registradas <span class="filtro__n"></span></button>
-            <button type="button" class="filtro" data-registro="no">Pendientes <span class="filtro__n"></span></button>
-          </div>
-          <!-- Los papeles. Solo sale cuando hay alguna casa al 100 % a la
-               vista, que son las únicas donde el check corresponde. -->
-          <div class="conteo__filtros" id="entrega" hidden>
-            <button type="button" class="filtro" data-entrega="si">Con papeles <span class="filtro__n"></span></button>
-            <button type="button" class="filtro" data-entrega="no">Sin papeles <span class="filtro__n"></span></button>
+          <div class="filtros">
+            <div class="filtros__fila" id="registro">
+              <span class="filtros__rotulo">Esta semana</span>
+              <button type="button" class="filtro" data-registro="si">Registradas <span class="filtro__n"></span></button>
+              <button type="button" class="filtro" data-registro="no">Pendientes <span class="filtro__n"></span></button>
+            </div>
+            <!-- Los papeles. Solo sale cuando hay alguna casa al 100 % a la
+                 vista, que son las únicas donde el check corresponde. -->
+            <div class="filtros__fila" id="entrega" hidden>
+              <span class="filtros__rotulo">Papeles</span>
+              <button type="button" class="filtro" data-entrega="si">Entregados <span class="filtro__n"></span></button>
+              <button type="button" class="filtro" data-entrega="no">Sin entregar <span class="filtro__n"></span></button>
+            </div>
           </div>
         </div>
         <!-- Las casas que llegaron al 100 % y ya se registraron salen de la
