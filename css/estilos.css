@@ -257,14 +257,43 @@ body {
 
 .filtros__fila { display: flex; align-items: center; gap: .375rem; }
 
-/* Ancho fijo para que los dos renglones queden alineados entre sí. */
+/* El rótulo es también el botón para salir del filtro. Ancho fijo para que los
+   dos renglones queden alineados entre sí, y sin borde ni fondo: apagado tiene
+   que leerse como un rótulo y nada más. */
 .filtros__rotulo {
   flex: none;
-  width: 4.5rem;
+  display: flex;
+  align-items: center;
+  width: 5.25rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
   font-size: .6875rem;
   line-height: 1.2;
+  text-align: left;
   color: var(--tinta-suave);
 }
+
+/* El hueco de la flecha se reserva siempre, aunque esté vacío: si apareciera
+   de la nada, el rótulo se correría cada vez que se enciende un filtro. */
+.filtros__flecha {
+  display: inline-block;
+  width: .5rem;
+  margin-right: .125rem;
+  font-size: .875rem;
+  line-height: 1;
+  visibility: hidden;
+}
+
+.filtros__rotulo--activo {
+  color: var(--verde-oscuro);
+  font-weight: 600;
+  cursor: pointer;
+}
+.filtros__rotulo--activo .filtros__flecha { visibility: visible; }
+.filtros__rotulo--activo:hover { color: var(--tinta); }
 
 .filtros__fila .filtro { flex: 1; min-width: 0; }
 
