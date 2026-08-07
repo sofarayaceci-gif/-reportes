@@ -587,6 +587,8 @@
       boton.setAttribute('aria-pressed', activo);
       boton.querySelector('.filtro__n').textContent = cuentas[valor];
     });
+
+    pintarRotulo('registro', !!estado.registro, 'esta semana');
   }
 
   /* Los dos botones de los papeles. Cuentan solo sobre las casas donde el check
@@ -621,6 +623,19 @@
       boton.setAttribute('aria-pressed', activo);
       boton.querySelector('.filtro__n').textContent = cuentas[valor];
     });
+
+    pintarRotulo('entrega', !!estado.entrega, 'papeles');
+  }
+
+  /* El rótulo del renglón hace de salida cuando ese filtro está encendido: le
+     aparece la flecha y se puede tocar. Apagado queda como un rótulo cualquiera
+     y ni siquiera se puede enfocar con el teclado. */
+  function pintarRotulo(fila, activo, queFiltra) {
+    const rotulo = $('#' + fila + ' .filtros__rotulo');
+    rotulo.classList.toggle('filtros__rotulo--activo', activo);
+    rotulo.disabled = !activo;
+    if (activo) rotulo.setAttribute('aria-label', 'Quitar el filtro de ' + queFiltra);
+    else rotulo.removeAttribute('aria-label');
   }
 
   /* La barra que abre y cierra la lista de terminadas. Solo se muestra si hay
@@ -1449,6 +1464,15 @@
       if (!boton) return;
       const valor = boton.dataset.entrega;
       estado.entrega = estado.entrega === valor ? '' : valor;
+      pintarResultados();
+    });
+
+    /* Las flechitas de los rótulos. Van delegadas en el contenedor de los dos
+       renglones, así valen para los dos con un solo oyente. */
+    $('.filtros').addEventListener('click', evento => {
+      const rotulo = evento.target.closest('[data-limpiar]');
+      if (!rotulo || rotulo.disabled) return;
+      estado[rotulo.dataset.limpiar] = '';
       pintarResultados();
     });
 
