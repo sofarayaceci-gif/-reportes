@@ -17,10 +17,12 @@
     grupo: '',             // filtro de grupo activo; vacío = todas
     subgrupo: '',          // filtro de bloque dentro del grupo; vacío = todos
     registro: '',          // 'si' = con check, 'no' = sin check, vacío = todas
+    entrega: '',           // 'si' = con papeles, 'no' = sin papeles, vacío = todas
     verTerminadas: false,  // la lista muestra las terminadas en vez de las que faltan
     marcas: {},            // { casaNorm: fecha ISO en que se copió }
     codigos: {},           // { casaNorm: { codigo, fecha } }
-    terminadas: {},        // { casaNorm: fecha ISO en que se dio por terminada }
+    terminadas: {},        // { casaNorm: { cerrada, fecha } }
+    papeles: {},           // { casaNorm: { entregados, fecha } }
     textos: null,          // { etapas: { n: texto }, medidor, fecha } — o null
     nube: { sincronizando: false, ultima: null, error: '' }
   };
@@ -341,6 +343,48 @@
   }
 
 
+  /* ══════════════════════════════════════════════════════════════════════════
+     PAPELES ENTREGADOS
+
+     El segundo check de la ficha, debajo del texto del reporte. Sale en las
+     casas que el reporte trae al 100 %, igual que el de la bitácora, pero es
+     independiente: una casa puede tener la bitácora cerrada y los papeles sin
+     entregar, o al revés.
+
+     No saca la casa de ninguna lista. Solo se puede filtrar por él, con los
+     dos botones de arriba de la lista.
+
+     Guarda { entregados, fecha } por la misma razón que las terminadas: hay
+     que acordarse también de los checks que se quitan, o la compu que todavía
+     lo tenga puesto lo revive al abrir la app.
+     ══════════════════════════════════════════════════════════════════════════ */
+  function tieneLosPapeles(casaNorm) {
+    const p = estado.papeles[casaNorm];
+    return !!p && p.entregados;
+  }
+
+  /* Dónde tiene sentido el check: en las casas al 100 %, y también en las que
+     ya lo tienen puesto aunque hayan bajado del 100 %. Si no, no habría dónde
+     quitárselo. */
+  function llevaPapeles(fila) {
+    return etapaDesdePorcentaje(fila.porcentaje) === ETAPA_FINALIZADA ||
+      !!estado.papeles[fila.casaNorm];
+  }
+
+  function guardarPapeles() {
+    return Almacen.guardarAjuste('papeles', estado.papeles);
+  }
+
+  function ponerPapeles(casaNorm, entregados) {
+    const anotacion = { entregados: entregados, fecha: new Date().toISOString() };
+    estado.papeles[casaNorm] = anotacion;
+    return guardarPapeles().then(() => {
+      const solo = {};
+      solo[casaNorm] = anotacion;
+      Nube.subirPapeles(solo).catch(() => {});
+    });
+  }
+
   /* ── Navegación entre vistas ────────────────────────────────────────────── */
 
   /* Ajustes no tiene botón abajo, así que hay que recordar de dónde se vino
@@ -391,6 +435,14 @@
         const registrada = diasDeMarca(fila.casaNorm) !== null;
         if (estado.registro === 'si' && !registrada) return false;
         if (estado.registro === 'no' && registrada) return false;
+      }
+      if (estado.entrega) {
+        /* Las que no llegaron al 100 % no entran en ninguno de los dos lados:
+           no es que les falten los papeles, es que todavía no corresponde. */
+        if (!llevaPapeles(fila)) return false;
+        const conPapeles = tieneLosPapeles(fila.casaNorm);
+        if (estado.entrega === 'si' && !conPapeles) return false;
+        if (estado.entrega === 'no' && conPapeles) return false;
       }
       return !q || coincideConLaBusqueda(fila, q);
     });
@@ -484,6 +536,8 @@
     const segun = (uno, varias) => n + (n === 1 ? uno : varias);
 
     if (consulta) return segun(' casa encontrada', ' casas encontradas') + enFiltro;
+    if (estado.entrega === 'si') return segun(' casa con papeles', ' casas con papeles') + enFiltro;
+    if (estado.entrega === 'no') return segun(' casa sin papeles', ' casas sin papeles') + enFiltro;
     if (estado.verTerminadas) return segun(' casa terminada', ' casas terminadas') + enFiltro;
     if (estado.registro === 'si') return segun(' casa registrada', ' casas registradas') + enFiltro;
     if (estado.registro === 'no') return segun(' casa pendiente', ' casas pendientes') + enFiltro;
@@ -500,6 +554,8 @@
     const deFiltro = filtro ? ' de ' + filtro : '';
 
     if (consulta) return 'Ninguna casa coincide con «' + esc(consulta) + '»' + esc(enFiltro) + '.';
+    if (estado.entrega === 'si') return 'Todavía no entregaste papeles' + esc(deFiltro) + '.';
+    if (estado.entrega === 'no') return '¡Listo! Entregaste todos los papeles' + esc(deFiltro) + '.';
     if (estado.verTerminadas) return 'Todavía no hay casas terminadas' + esc(enFiltro) + '.';
     if (estado.registro === 'no') return '¡Listo! Ya registraste todas las casas' + esc(deFiltro) + '.';
     if (estado.registro === 'si') return 'Todavía no registraste ninguna casa' + esc(deFiltro) + '.';
@@ -527,6 +583,40 @@
     $$('#registro .filtro').forEach(boton => {
       const valor = boton.dataset.registro;
       const activo = estado.registro === valor;
+      boton.classList.toggle('filtro--activo', activo);
+      boton.setAttribute('aria-pressed', activo);
+      boton.querySelector('.filtro__n').textContent = cuentas[valor];
+    });
+  }
+
+  /* Los dos botones de los papeles. Cuentan solo sobre las casas donde el check
+     corresponde —las que están al 100 %—, así los dos números suman esas y no
+     el reporte entero: «Sin entregar 40» contando casas a medio construir no
+     querría decir nada.
+
+     La fila entera se esconde mientras no haya ninguna a la vista. */
+  function pintarEntrega(consulta) {
+    const fila = $('#entrega');
+
+    /* Sobre lo que se vería sin este filtro, para que los dos números sumen
+       siempre el total de casas al 100 % del grupo en el que estés. */
+    const entregaReal = estado.entrega;
+    estado.entrega = '';
+    const base = filasQueCoinciden(consulta).filter(llevaPapeles);
+    estado.entrega = entregaReal;
+
+    if (!base.length) {
+      fila.hidden = true;
+      return;
+    }
+    fila.hidden = false;
+
+    const conPapeles = base.filter(f => tieneLosPapeles(f.casaNorm)).length;
+    const cuentas = { si: conPapeles, no: base.length - conPapeles };
+
+    $$('#entrega .filtro').forEach(boton => {
+      const valor = boton.dataset.entrega;
+      const activo = estado.entrega === valor;
       boton.classList.toggle('filtro--activo', activo);
       boton.setAttribute('aria-pressed', activo);
       boton.querySelector('.filtro__n').textContent = cuentas[valor];
@@ -585,6 +675,7 @@
     $('#btnLimpiar').hidden = !consulta;
     pintarTerminadas();
     pintarRegistro(consulta);
+    pintarEntrega(consulta);
 
     if (!estado.filas.length) {
       contenedor.innerHTML = '';
@@ -689,17 +780,43 @@
           (fila.porcentaje === null ? 'sin %' : fila.porcentaje + ' %') +
           ', así que sigue en la lista.';
 
-    return '<label class="bitacora' + (cerrada ? ' bitacora--cerrada' : '') + '" id="bitacora">' +
-      '<input type="checkbox" class="bitacora__check" ' +
+    return '<label class="chequeo' + (cerrada ? ' chequeo--puesto' : '') + '" id="bitacora">' +
+      '<input type="checkbox" class="chequeo__check" ' +
         'data-bitacora="' + esc(fila.casaNorm) + '"' + (cerrada ? ' checked' : '') + '>' +
-      '<span class="bitacora__texto"><strong>Bitácora cerrada</strong>' +
-        '<span class="bitacora__nota">' + esc(nota) + '</span></span>' +
+      '<span class="chequeo__texto"><strong>Bitácora cerrada</strong>' +
+        '<span class="chequeo__nota">' + esc(nota) + '</span></span>' +
       '</label>';
   }
 
   function refrescarBitacora(fila) {
     const caja = $('#bitacora');
     if (caja) caja.outerHTML = bitacoraHTML(fila);
+  }
+
+  /* El check de los papeles, debajo del texto del reporte. Mismo aspecto y
+     misma mecánica que el de la bitácora, pero sin consecuencias en la lista:
+     acá solo queda anotado y se puede filtrar por él. */
+  function papelesHTML(fila) {
+    if (!llevaPapeles(fila)) return '<div id="papeles" hidden></div>';
+
+    const puestos = tieneLosPapeles(fila.casaNorm);
+    const cuando = puestos
+      ? fechaLegible(estado.papeles[fila.casaNorm].fecha).split(' · ')[0] : '';
+    const nota = puestos
+      ? (cuando ? 'Entregados el ' + cuando + '.' : 'Ya se entregaron.')
+      : 'Marcalo cuando los entregues. La casa se queda en la lista igual.';
+
+    return '<label class="chequeo' + (puestos ? ' chequeo--puesto' : '') + '" id="papeles">' +
+      '<input type="checkbox" class="chequeo__check" ' +
+        'data-papeles="' + esc(fila.casaNorm) + '"' + (puestos ? ' checked' : '') + '>' +
+      '<span class="chequeo__texto"><strong>Papeles entregados</strong>' +
+        '<span class="chequeo__nota">' + esc(nota) + '</span></span>' +
+      '</label>';
+  }
+
+  function refrescarPapeles(fila) {
+    const caja = $('#papeles');
+    if (caja) caja.outerHTML = papelesHTML(fila);
   }
 
   function abrirCasa(casaNorm) {
@@ -755,6 +872,7 @@
         '</div>' +
         '<p class="texto-generado__cuerpo" id="cuerpoTexto">' + esc(texto) + '</p>' +
       '</div>' +
+      papelesHTML(fila) +
       historialDeCasaHTML(casaNorm);
 
     $('#btnCopiar').addEventListener('click', () => {
@@ -1117,6 +1235,22 @@
     });
   }
 
+  /* Los papeles, con la misma regla que las terminadas: gana la última vez que
+     alguien tocó el check, sea para ponerlo o para quitarlo. */
+  function sincronizarPapeles() {
+    return Nube.leerPapeles().then(remotos => {
+      const unidos = Object.assign({}, remotos);
+      Object.keys(estado.papeles).forEach(casa => {
+        const local = estado.papeles[casa];
+        const otro = unidos[casa];
+        if (!otro || new Date(local.fecha) > new Date(otro.fecha)) unidos[casa] = local;
+      });
+      estado.papeles = unidos;
+
+      return guardarPapeles().then(() => Nube.subirPapeles(estado.papeles));
+    });
+  }
+
   /* Los textos no se juntan: gana el más nuevo, entero. Son textos que se
      escriben de tanto en tanto y desde un solo lado, y mezclar la mitad de un
      aparato con la mitad del otro dejaría un reporte que no escribió nadie. */
@@ -1159,6 +1293,7 @@
       .then(() => sincronizarMarcas())
       .then(() => sincronizarCodigos())
       .then(() => sincronizarTerminadas())
+      .then(() => sincronizarPapeles())
       .then(() => sincronizarTextos())
       .then(() => recargarTodo())
       .then(() => {
@@ -1206,12 +1341,14 @@
       Almacen.leerAjuste('marcas', {}),
       Almacen.leerAjuste('codigos', {}),
       Almacen.leerAjuste('terminadas', {}),
+      Almacen.leerAjuste('papeles', {}),
       Almacen.leerAjuste('textos', null)
-    ]).then(([reportes, idActivo, marcas, codigos, terminadas, textos]) => {
+    ]).then(([reportes, idActivo, marcas, codigos, terminadas, papeles, textos]) => {
       estado.reportes = reportes;
       estado.marcas = marcas && typeof marcas === 'object' ? marcas : {};
       estado.codigos = codigos && typeof codigos === 'object' ? codigos : {};
       estado.terminadas = alFormatoNuevo(terminadas);
+      estado.papeles = papeles && typeof papeles === 'object' ? papeles : {};
 
       /* Los textos propios se aplican antes de pintar nada: si no, la primera
          pantalla saldría con los de fábrica y cambiaría sola un instante
@@ -1305,6 +1442,16 @@
       pintarResultados();
     });
 
+    /* Entregados / Sin entregar, con la misma regla: el que ya está activo se
+       apaga y vuelven todas. */
+    $('#entrega').addEventListener('click', evento => {
+      const boton = evento.target.closest('[data-entrega]');
+      if (!boton) return;
+      const valor = boton.dataset.entrega;
+      estado.entrega = estado.entrega === valor ? '' : valor;
+      pintarResultados();
+    });
+
     /* La barra de terminadas: pasa de la lista de trabajo a la de terminadas y
        al revés. Al entrar se apaga el filtro del check, que ahí no aplica. */
     $('#btnTerminadas').addEventListener('click', () => {
@@ -1349,22 +1496,41 @@
        el aparato tiene anotada la otra. */
     $('#detalle').addEventListener('change', evento => {
       const check = evento.target.closest('[data-bitacora]');
-      if (!check) return;
+      if (check) {
+        const casaNorm = check.dataset.bitacora;
+        const fila = estado.filas.find(f => f.casaNorm === casaNorm);
+        const cerrar = check.checked;
 
-      const casaNorm = check.dataset.bitacora;
-      const fila = estado.filas.find(f => f.casaNorm === casaNorm);
-      const cerrar = check.checked;
+        (cerrar ? darPorTerminada(casaNorm) : devolverTerminada(casaNorm)).then(() => {
+          if (fila) refrescarBitacora(fila);
+          pintarResultados();
+          avisar(cerrar
+            ? (fila ? fila.casa : casaNorm) + ' pasó a las terminadas.'
+            : 'Bitácora abierta otra vez: vuelve a la lista.');
+        }).catch(() => {
+          check.checked = !cerrar;
+          avisar('No se pudo guardar el check.', true);
+        });
+        return;
+      }
 
-      (cerrar ? darPorTerminada(casaNorm) : devolverTerminada(casaNorm)).then(() => {
-        if (fila) refrescarBitacora(fila);
-        pintarResultados();
-        avisar(cerrar
-          ? (fila ? fila.casa : casaNorm) + ' pasó a las terminadas.'
-          : 'Bitácora abierta otra vez: vuelve a la lista.');
-      }).catch(() => {
-        check.checked = !cerrar;
-        avisar('No se pudo guardar el check.', true);
-      });
+      /* Los papeles no mueven la casa de lista; solo se repinta para que los
+         dos botones de arriba muestren los números nuevos. */
+      const papeles = evento.target.closest('[data-papeles]');
+      if (papeles) {
+        const casaNorm = papeles.dataset.papeles;
+        const fila = estado.filas.find(f => f.casaNorm === casaNorm);
+        const entregar = papeles.checked;
+
+        ponerPapeles(casaNorm, entregar).then(() => {
+          if (fila) refrescarPapeles(fila);
+          pintarResultados();
+          avisar(entregar ? 'Papeles entregados' : 'Papeles marcados como no entregados');
+        }).catch(() => {
+          papeles.checked = !entregar;
+          avisar('No se pudo guardar el check.', true);
+        });
+      }
     });
 
     /* El campo del código. Enter acepta, Escape descarta; escribir no guarda,

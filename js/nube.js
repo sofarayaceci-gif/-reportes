@@ -264,6 +264,36 @@ const Nube = (() => {
     });
   }
 
+  /* ── Papeles entregados ───────────────────────────────────────────────────
+     El otro check de la ficha. Va igual que las terminadas y por lo mismo: la
+     fila se queda con «entregados» en falso al destildarlo, para que quitarlo
+     se propague en vez de que otra compu lo reviva. */
+
+  function leerPapeles() {
+    return pedir('papeles?select=casa_norm,entregados,fecha', { prefer: 'return=representation' })
+      .then(lista => {
+        const mapa = {};
+        (lista || []).forEach(p => {
+          mapa[p.casa_norm] = { entregados: p.entregados !== false, fecha: p.fecha };
+        });
+        return mapa;
+      });
+  }
+
+  function subirPapeles(papeles) {
+    const filas = Object.keys(papeles || {}).map(casa => ({
+      casa_norm: casa,
+      entregados: !!papeles[casa].entregados,
+      fecha: papeles[casa].fecha
+    }));
+    if (!filas.length) return Promise.resolve(null);
+    return pedir('papeles', {
+      metodo: 'POST',
+      cabeceras: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      cuerpo: filas
+    });
+  }
+
   /* ── Ajustes ──────────────────────────────────────────────────────────────
      Una fila por ajuste, con el valor entero en un jsonb. Hoy el único que se
      sincroniza son los textos del reporte, que se cambian desde la tuerca.
@@ -291,6 +321,7 @@ const Nube = (() => {
     leerMarcas, subirMarcas, borrarMarca, borrarMarcasQueSobran,
     leerCodigos, subirCodigos, borrarCodigo,
     leerTerminadas, subirTerminadas,
+    leerPapeles, subirPapeles,
     leerAjuste, subirAjuste
   };
 })();
