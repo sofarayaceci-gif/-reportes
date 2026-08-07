@@ -481,12 +481,12 @@ body {
   line-height: 1;
 }
 
-/* ── El check de la bitácora ──────────────────────────────────────────────
-   Sale en la ficha de las casas en 100 %. Marcado es lo que las saca de la
-   lista de trabajo; sin marcar, la casa sigue por hacer aunque el Excel diga
-   100 %. Todo el bloque es la etiqueta, así que se puede tocar en cualquier
-   parte y no solo en el cuadrito. */
-.bitacora {
+/* ── Los checks de la ficha ───────────────────────────────────────────────
+   Son dos y salen en las casas al 100 %: el de la bitácora arriba, antes del
+   avance, y el de los papeles abajo, después del texto. Todo el bloque es la
+   etiqueta, así que se puede tocar en cualquier parte y no solo en el
+   cuadrito. */
+.chequeo {
   display: flex;
   align-items: flex-start;
   gap: .625rem;
@@ -500,15 +500,18 @@ body {
   cursor: pointer;
   transition: border-color .15s, background .15s;
 }
-.bitacora:hover { border-color: var(--verde); }
+.chequeo:hover { border-color: var(--verde); }
 
-.bitacora--cerrada {
+.chequeo--puesto {
   border-color: var(--verde-borde);
   background: var(--verde-suave);
   color: #47512f;
 }
 
-.bitacora__check {
+/* El de los papeles va pegado al texto del reporte, que ya trae su margen. */
+#papeles { margin: -.375rem 0 0; }
+
+.chequeo__check {
   flex: none;
   width: 1.125rem;
   height: 1.125rem;
@@ -519,13 +522,13 @@ body {
   cursor: pointer;
 }
 
-.bitacora__texto { flex: 1; min-width: 0; }
-.bitacora__texto strong {
+.chequeo__texto { flex: 1; min-width: 0; }
+.chequeo__texto strong {
   display: block;
   color: var(--tinta);
   font-size: .875rem;
 }
-.bitacora__nota { display: block; }
+.chequeo__nota { display: block; }
 
 .ficha__contexto {
   display: flex;
