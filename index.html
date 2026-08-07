@@ -65,16 +65,24 @@
              no se sabía cuál filtraba qué. -->
         <div class="conteo" id="conteoFila" hidden>
           <p class="conteo__texto" id="conteo"></p>
+          <!-- El rótulo de cada renglón es además la salida: cuando ese filtro
+               está encendido le sale una flecha y se puede tocar para volver.
+               Sin eso, la única forma de apagarlo era tocar otra vez el botón
+               que ya estaba prendido, y eso no se ve. -->
           <div class="filtros">
             <div class="filtros__fila" id="registro">
-              <span class="filtros__rotulo">Esta semana</span>
+              <button type="button" class="filtros__rotulo" data-limpiar="registro" disabled>
+                <span class="filtros__flecha" aria-hidden="true">&lsaquo;</span>Esta semana
+              </button>
               <button type="button" class="filtro" data-registro="si">Registradas <span class="filtro__n"></span></button>
               <button type="button" class="filtro" data-registro="no">Pendientes <span class="filtro__n"></span></button>
             </div>
             <!-- Los papeles. Solo sale cuando hay alguna casa al 100 % a la
                  vista, que son las únicas donde el check corresponde. -->
             <div class="filtros__fila" id="entrega" hidden>
-              <span class="filtros__rotulo">Papeles</span>
+              <button type="button" class="filtros__rotulo" data-limpiar="entrega" disabled>
+                <span class="filtros__flecha" aria-hidden="true">&lsaquo;</span>Papeles
+              </button>
               <button type="button" class="filtro" data-entrega="si">Entregados <span class="filtro__n"></span></button>
               <button type="button" class="filtro" data-entrega="no">Sin entregar <span class="filtro__n"></span></button>
             </div>

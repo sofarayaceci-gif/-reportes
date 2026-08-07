@@ -102,6 +102,13 @@ tocar el `.bat`.
    Se combina con lo demás: podés pedir las pendientes de VB-5, o buscar dentro
    de las pendientes.
 
+   Cuando un filtro está encendido, **al rótulo del renglón le sale una flecha
+   ‹ y se pone verde**. Tocalo y se apaga ese filtro. Es la salida: sin eso,
+   la única forma de volver era tocar otra vez el mismo botón, y eso no se ve.
+
+   Cada flecha apaga **solo su renglón**. Si tenés los dos encendidos, tocás
+   una y el otro sigue.
+
    > Ojo: como la marca dura 7 días, *Pendientes* quiere decir «no la copié en
    > la última semana», no «no la copié nunca». Para el ritmo semanal calza, pero
    > si te atrasás, las de hace más de 7 días vuelven a salir como pendientes.
