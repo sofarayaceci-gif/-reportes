@@ -130,7 +130,25 @@ tocar el `.bat`.
    > Esta pantalla necesita una tabla nueva en Supabase. Mientras no se corra el
    > SQL, las terminadas funcionan en el aparato pero no se sincronizan, y en
    > *Historial* sale el aviso de que faltan las tablas.
-8. **Medidor**: cuando *Obras Complementarias* está en **100 %**, la app le agrega
+8. **Los papeles**: debajo del cuadro del texto, en las casas al **100 %**, hay
+   un segundo check que dice **Papeles entregados**.
+
+   Es **independiente del de la bitácora**: una casa puede tener la bitácora
+   cerrada y los papeles sin entregar, o al revés. Y **no la saca de ninguna
+   lista** — queda anotado y ya.
+
+   Para verlos, arriba de la lista salen **Con papeles** y **Sin papeles**, con
+   su número. Funcionan igual que *Registradas / Pendientes*: tocás uno y quedan
+   solo esas, tocás el mismo otra vez y vuelven todas.
+
+   Los dos números cuentan **solo las casas al 100 %**, que son las únicas donde
+   el check corresponde. Por eso no suman el reporte entero, y por eso la fila
+   no aparece si no hay ninguna al 100 % a la vista.
+
+   Se ve también dentro de la lista de terminadas, que es donde más sirve. Y
+   quitar el check se propaga a las demás computadoras, igual que el de la
+   bitácora.
+9. **Medidor**: cuando *Obras Complementarias* está en **100 %**, la app le agrega
    sola este texto al final:
 
    > , adicionalmente se comenta que la construccion ya cuenta con medidor provisional
@@ -211,6 +229,7 @@ detrás. Va y viene todo lo que no se puede sacar del Excel:
 | Las marcas de «añadido» | las de 7 días |
 | **Los códigos** de cada casa | |
 | **Los checks** de bitácora cerrada | las casas terminadas |
+| **Los checks** de papeles entregados | |
 | **Los textos** que hayas cambiado con la tuerca | |
 
 En la pestaña **Historial**, arriba, se ve cómo fue la última vez, y si algo falló
@@ -227,9 +246,9 @@ aparece un botón de *Reintentar*.
   tienen algo distinto, para cada casa queda uno solo: la marca más nueva y el
   código escrito más tarde. Nunca se pierde nada. Lo peor que puede pasar es que
   reaparezca algo que borraste sin señal, y se borra otra vez.
-- **Los checks de bitácora funcionan distinto: gana la última vez que se tocó.**
-  Poner y quitar pesan igual, así que **si le quitás el check en una compu, se le
-  quita en todas**.
+- **Los dos checks de la ficha funcionan distinto: gana la última vez que se
+  tocó.** Poner y quitar pesan igual, así que **si le quitás un check en una
+  compu, se le quita en todas**.
 
   Tienen que ser así por algo concreto: la app se acuerda de los checks que
   quitaste, no solo de los que pusiste. Si simplemente los olvidara, otra compu

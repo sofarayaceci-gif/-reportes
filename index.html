@@ -67,6 +67,12 @@
             <button type="button" class="filtro" data-registro="si">Registradas <span class="filtro__n"></span></button>
             <button type="button" class="filtro" data-registro="no">Pendientes <span class="filtro__n"></span></button>
           </div>
+          <!-- Los papeles. Solo sale cuando hay alguna casa al 100 % a la
+               vista, que son las únicas donde el check corresponde. -->
+          <div class="conteo__filtros" id="entrega" hidden>
+            <button type="button" class="filtro" data-entrega="si">Con papeles <span class="filtro__n"></span></button>
+            <button type="button" class="filtro" data-entrega="no">Sin papeles <span class="filtro__n"></span></button>
+          </div>
         </div>
         <!-- Las casas que llegaron al 100 % y ya se registraron salen de la
              lista de trabajo y se ven acá. La barra aparece sola cuando hay
